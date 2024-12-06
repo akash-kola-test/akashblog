@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Tags on Akash´s corner</title>
+    <link>https://akash-kola-test.github.io/akashblog/tags/</link>
+    <description>Recent content in Tags on Akash´s corner</description>
+    <generator>Hugo -- 0.139.3</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 03 Dec 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://akash-kola-test.github.io/akashblog/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Aws-Training-Tasks</title>
+      <link>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</link>
+      <pubDate>Tue, 03 Dec 2024 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Ecs</title>
+      <link>https://akash-kola-test.github.io/akashblog/tags/ecs/</link>
+      <pubDate>Tue, 03 Dec 2024 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/tags/ecs/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Influxdb</title>
+      <link>https://akash-kola-test.github.io/akashblog/tags/influxdb/</link>
+      <pubDate>Fri, 29 Nov 2024 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/tags/influxdb/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>
