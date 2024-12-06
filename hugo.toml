@@ -1,0 +1,52 @@
+baseURL = 'https://akash-kola-test.github.io/akashblog/'
+languageCode = 'en-us'
+title = 'Akash´s corner'
+theme = "PaperMod"
+
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderHooks]
+      [markup.goldmark.renderHooks.link]
+        enableDefault = true
+      [markup.goldmark.renderHooks.image]
+        enableDefault = true
+
+
+[module]
+  [[module.mounts]]
+    source = 'assets'
+    target = 'assets'
+  [[module.mounts]]
+    source = 'static'
+    target = 'assets'
+
+
+[permalinks] #Shortens urls so blog doesn´t show in URL
+  blog = "/:title/"
+
+  [menu]
+    [[menu.main]]
+      identifier = "home"
+      name = "Home"
+      url = "/"
+      weight = 10
+
+    [[menu.main]]
+      identifier = "blog"
+      name = "Blog"
+      url = "/posts"
+      weight = 20
+
+    [[menu.main]]
+      identifier = "about"
+      name = "About"
+      url = "/about"
+      weight = 30
+
+    [[menu.main]]
+      identifier = "contact"
+      name = "Contact"
+      url = "/contact"
+      weight = 40
+
