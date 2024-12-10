@@ -566,12 +566,5 @@
 &lt;p&gt;&lt;img alt=&#34;Series and fields&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Series%20and%20fields.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;We can arrange the data with key as ID and time, and the value being the field value and the key is always sorted&lt;/p&gt;</description>
     </item>
-    <item>
-      <title></title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</guid>
-      <description></description>
-    </item>
   </channel>
 </rss>
