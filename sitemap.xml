@@ -3,22 +3,22 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://akash-kola-test.github.io/akashblog/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/ecs/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/posts/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/</loc>
-    <lastmod>2024-12-03T00:00:00+00:00</lastmod>
+    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/influxdb/</loc>
     <lastmod>2024-11-29T00:00:00+00:00</lastmod>
@@ -31,6 +31,8 @@
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</loc>
     <lastmod>2024-11-29T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</loc>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/categories/</loc>
   </url>
