@@ -1,7 +1,7 @@
 ---
 title: AWS CDK - Assignment 1
 date: 2024-12-16
-draft: true
+draft: false
 tags:
   - aws-training-tasks
   - "#cdk"
