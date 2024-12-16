@@ -1,6 +1,6 @@
 ---
 title: AWS Kinesis - Overview
-date: 2024-12-21
+date: 2024-12-16
 draft: 
 tags:
   - aws
