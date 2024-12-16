@@ -2,13 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/%23cdk/</loc>
+    <lastmod>2024-12-16T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/</loc>
     <lastmod>2024-12-16T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/aws/</loc>
     <lastmod>2024-12-16T00:00:00+00:00</lastmod>
   </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/</loc>
+    <lastmod>2024-12-16T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-kinesis---overview/</loc>
+    <lastmod>2024-12-16T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</loc>
     <lastmod>2024-12-16T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/kinesis/</loc>
@@ -20,10 +29,10 @@
     <loc>https://akash-kola-test.github.io/akashblog/tags/</loc>
     <lastmod>2024-12-16T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</loc>
-    <lastmod>2024-12-09T00:00:00+00:00</lastmod>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</loc>
+    <lastmod>2024-12-10T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</loc>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</loc>
     <lastmod>2024-12-09T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/ecs/</loc>

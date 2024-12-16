@@ -154,6 +154,18 @@
 
 <article class="post-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">AWS CDK - Assignment 1
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p> After creating the project replace the existing resources with the following code inside stack file const kms_key = new Key(this, &#34;KmsKey&#34;); new Bucket(this, &#34;S3Bucket&#34;, { bucketName: &#34;&#34;, versioned: true, encryption: BucketEncryption.KMS, encryptionKey: kms_key, removalPolicy: cdk.RemovalPolicy.DESTROY, }); First we created the KMS key and later we used that key to encrypt our bucket objects Let’s add KMS key created test test(&#34;Kms key is created&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); template.resourceCountIs(&#34;AWS::KMS::Key&#34;, 1); }); Let’s add another test for if KMS encryption is enabled for the bucket or not test(&#34;SSE KMS encryption is enabled for the bucket&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { SSEAlgorithm: &#34;aws:kms&#34;, }, }, ], }, }; template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties); }); Let’s add another test to check if the created key only is being used for objects encryption test(&#34;Created KMS key is being utilized by bucket for encryption&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { KMSMasterKeyID: { &#34;Fn::GetAtt&#34;: [&#34;KmsKey46693ADD&#34;, &#34;Arn&#34;], }, }, }, ], }, }; template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties); }); Let’s execute the tests, and we can see that all passed ...</p>
+  </div>
+  <footer class="entry-footer"><span title='2024-12-16 00:00:00 +0000 UTC'>December 16, 2024</span></footer>
+  <a class="entry-link" aria-label="post link to AWS CDK - Assignment 1" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">AWS Kinesis - Overview
     </h2>
   </header>
@@ -166,6 +178,18 @@ Capacity Mode We you can choose between an on-demand mode and a provisioned 
   </div>
   <footer class="entry-footer"><span title='2024-12-16 00:00:00 +0000 UTC'>December 16, 2024</span></footer>
   <a class="entry-link" aria-label="post link to AWS Kinesis - Overview" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-kinesis---overview/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">AWS CDK - Workshop
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>Prerequisites AWS CLI AWS Account and User configured with AWS CLI Node JS &gt; 18 AWS CDK Toolkit Sample application Initializing a project with the init command cdk init sample-app --language typescript Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration. cdk synth ...</p>
+  </div>
+  <footer class="entry-footer"><span title='2024-12-10 00:00:00 +0000 UTC'>December 10, 2024</span></footer>
+  <a class="entry-link" aria-label="post link to AWS CDK - Workshop" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/"></a>
 </article>
 
 <article class="post-entry"> 

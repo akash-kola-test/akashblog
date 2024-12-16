@@ -5,9 +5,26 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <meta name="robots" content="index, follow">
-<title>Akash´s corner</title>
-<meta name="keywords" content="">
-<meta name="description" content=" - Akash´s corner">
+<title>AWS CDK - Workshop | Akash´s corner</title>
+<meta name="keywords" content="aws-training-tasks, #cdk">
+<meta name="description" content="Prerequisites
+
+AWS CLI
+AWS Account and User configured with AWS CLI
+Node JS &gt; 18
+AWS CDK Toolkit
+
+Sample application
+
+Initializing a project with the init command
+
+cdk init sample-app --language typescript
+
+
+Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration.
+
+cdk synth
+">
 <meta name="author" content="">
 <link rel="canonical" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/">
 <link crossorigin="anonymous" href="/akashblog/assets/css/stylesheet.d6fcd20a4fb86efa4dfac8ec95da60244cc8871042183da1ef28e3a762ad79c8.css" integrity="sha256-1vzSCk&#43;4bvpN&#43;sjsldpgJEzIhxBCGD2h7yjjp2Ktecg=" rel="preload stylesheet" as="style">
@@ -57,13 +74,35 @@
     </style>
 </noscript><meta property="og:url" content="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/">
   <meta property="og:site_name" content="Akash´s corner">
-  <meta property="og:title" content="Akash´s corner">
+  <meta property="og:title" content="AWS CDK - Workshop">
+  <meta property="og:description" content="Prerequisites AWS CLI AWS Account and User configured with AWS CLI Node JS &gt; 18 AWS CDK Toolkit Sample application Initializing a project with the init command cdk init sample-app --language typescript Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration. cdk synth ">
   <meta property="og:locale" content="en-us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-12-10T00:00:00+00:00">
+    <meta property="article:modified_time" content="2024-12-10T00:00:00+00:00">
+    <meta property="article:tag" content="Aws-Training-Tasks">
+    <meta property="article:tag" content="#Cdk">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="">
-<meta name="twitter:description" content="">
+<meta name="twitter:title" content="AWS CDK - Workshop">
+<meta name="twitter:description" content="Prerequisites
+
+AWS CLI
+AWS Account and User configured with AWS CLI
+Node JS &gt; 18
+AWS CDK Toolkit
+
+Sample application
+
+Initializing a project with the init command
+
+cdk init sample-app --language typescript
+
+
+Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration.
+
+cdk synth
+">
 
 
 <script type="application/ld+json">
@@ -80,7 +119,7 @@
     {
       "@type": "ListItem",
       "position":  2 ,
-      "name": "",
+      "name": "AWS CDK - Workshop",
       "item": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/"
     }
   ]
@@ -90,17 +129,17 @@
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  "headline": "",
-  "name": "",
-  "description": "",
+  "headline": "AWS CDK - Workshop",
+  "name": "AWS CDK - Workshop",
+  "description": "Prerequisites AWS CLI AWS Account and User configured with AWS CLI Node JS \u0026gt; 18 AWS CDK Toolkit Sample application Initializing a project with the init command cdk init sample-app --language typescript Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration. cdk synth ",
   "keywords": [
-    
+    "aws-training-tasks", "#cdk"
   ],
-  "articleBody": "",
-  "wordCount" : "0",
+  "articleBody": "Prerequisites AWS CLI AWS Account and User configured with AWS CLI Node JS \u003e 18 AWS CDK Toolkit Sample application Initializing a project with the init command cdk init sample-app --language typescript Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration. cdk synth Before we deploy our project, we need to bootstrap the CDK so that it will create necessary recourses to store it’s assets and other things cdk bootstrap Now we can deploy this sample app using CDK’s deploy command cdk deploy Custom constructs - Hit Counter We can also create our own constructs to increase re usability of the resources. Let’s create something like below\nCreate a new file under lib called hitcounter.ts with the following content: import { IFunction } from \"aws-cdk-lib/aws-lambda\"; import { Construct } from \"constructs\"; export interface HitCounterProps { /** the function for which we want to count url hits **/ downstream: IFunction; } export class HitCounter extends Construct { constructor(scope: Construct, id: string, props: HitCounterProps) { super(scope, id); // TODO } } We declared a new construct class called HitCounter. As usual, constructor arguments are scope, id and props, and we propagate them to the cdk.Construct base class. The props argument is of type HitCounterProps which includes a single property downstream of type lambda.IFunction. This is where we are going to “plug in” the Lambda function we created in the previous chapter so it can be hit-counted. Now let’s write the Lambda handler code for our hit counter, create the file lambda/hitcounter.js const { DynamoDB } = require(\"@aws-sdk/client-dynamodb\"); const { Lambda, InvokeCommand } = require(\"@aws-sdk/client-lambda\"); exports.handler = async function (event) { console.log(\"request:\", JSON.stringify(event, undefined, 2)); // create AWS SDK clients const dynamo = new DynamoDB(); const lambda = new Lambda(); // update dynamo entry for \"path\" with hits++ await dynamo.updateItem({ TableName: process.env.HITS_TABLE_NAME, Key: { path: { S: event.path } }, UpdateExpression: \"ADD hits :incr\", ExpressionAttributeValues: { \":incr\": { N: \"1\" } }, }); // call downstream function and capture response const command = new InvokeCommand({ FunctionName: process.env.DOWNSTREAM_FUNCTION_NAME, Payload: JSON.stringify(event), }); const { Payload } = await lambda.send(command); const result = Buffer.from(Payload).toString(); console.log(\"downstream response:\", JSON.stringify(result, undefined, 2)); // return response back to upstream caller return JSON.parse(result); }; HITS_TABLE_NAME is the name of the DynamoDB table to use for storage. DOWNSTREAM_FUNCTION_NAME is the name of the downstream AWS Lambda function. Now, let’s define the AWS Lambda function and the DynamoDB table in our HitCounter construct. Go back to lib/hitcounter.ts and add the following code: import { AttributeType, Table } from \"aws-cdk-lib/aws-dynamodb\"; import { Code, Function, IFunction, Runtime } from \"aws-cdk-lib/aws-lambda\"; import { Construct } from \"constructs\"; export interface HitCounterProps { /** the function for which we want to count url hits **/ downstream: IFunction; } export class HitCounter extends Construct { /** allows accessing the counter function */ public readonly handler: Function; constructor(scope: Construct, id: string, props: HitCounterProps) { super(scope, id); const table = new Table(this, \"Hits\", { partitionKey: { name: \"path\", type: AttributeType.STRING }, }); this.handler = new Function(this, \"HitCounterHandler\", { runtime: Runtime.NODEJS_18_X, handler: \"hitcounter.handler\", code: Code.fromAsset(\"lambda\"), environment: { DOWNSTREAM_FUNCTION_NAME: props.downstream.functionName, HITS_TABLE_NAME: table.tableName, }, }); } } We defined a DynamoDB table with path as the partition key. We defined a Lambda function which is bound to the lambda/hitcounter.handler code. We wired the Lambda’s environment variables to the functionName and tableName of our resources. Our hit counter is ready. Let’s use it in our app. Open lib/cdk-workshop-stack.ts and modify your stack to look like this, also created hello.js file as mentioned below / defines an AWS Lambda resource const hello = new Function(this, \"HelloHandler\", { runtime: Runtime.NODEJS_18_X, // execution environment code: Code.fromAsset(\"lambda\"), // code loaded from \"lambda\" directory handler: \"hello.handler\", // file is \"hello\", function is \"handler\" }); const helloWithCounter = new HitCounter(this, \"HelloHitCounter\", { downstream: hello, }); // defines an API Gateway REST API resource backed by our \"hello\" function. const gateway = new LambdaRestApi(this, \"Endpoint\", { handler: helloWithCounter.handler, }); // lambda/hello.js exports.handler = async function (event) { console.log(\"request:\", JSON.stringify(event, undefined, 2)); return { statusCode: 200, headers: { \"Content-Type\": \"text/plain\" }, body: `Good Night, CDK! You've hit ${event.path}\\n`, }; }; As everything we configured, we can now deploy this and test it and we can see something went wrong. Let’s check what’s wrong with cloud watch logs We can now see our Lambda function can’t write to our DynamoDB table, let’s give our Lambda’s execution role permissions to read/write from our table in lib/hitcounter.ts. table.grantReadWriteData(this.handler); Let’s deploy and test again, still getting this 5xx error! Let’s look at our CloudWatch logs again. Our hit counter doesn’t have permissions to invoke the downstream lambda function. So, let’s add the lines to lib/hitcounter.ts as shown: props.downstream.grantInvoke(this.handler); Now let’s deploy and test it again. This time it works ",
+  "wordCount" : "801",
   "inLanguage": "en",
-  "datePublished": "0001-01-01T00:00:00Z",
-  "dateModified": "0001-01-01T00:00:00Z",
+  "datePublished": "2024-12-10T00:00:00Z",
+  "dateModified": "2024-12-10T00:00:00Z",
   "mainEntityOfPage": {
     "@type": "WebPage",
     "@id": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/"
@@ -186,15 +225,204 @@
   <header class="post-header">
     
     <h1 class="post-title entry-hint-parent">
-      
+      AWS CDK - Workshop
     </h1>
-    <div class="post-meta">
+    <div class="post-meta"><span title='2024-12-10 00:00:00 +0000 UTC'>December 10, 2024</span>
 
 </div>
   </header> 
+  <div class="post-content"><h3 id="prerequisites">Prerequisites<a hidden class="anchor" aria-hidden="true" href="#prerequisites">#</a></h3>
+<ul>
+<li>AWS CLI</li>
+<li>AWS Account and User configured with AWS CLI</li>
+<li>Node JS &gt; 18</li>
+<li>AWS CDK Toolkit</li>
+</ul>
+<h3 id="sample-application">Sample application<a hidden class="anchor" aria-hidden="true" href="#sample-application">#</a></h3>
+<ol>
+<li>Initializing a project with the init command</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cdk init sample-app --language typescript
+</span></span></code></pre></div><p><img alt="AWS CDK - Workshop - CDK Init Example" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20CDK%20Init%20Example.png"></p>
+<ol start="2">
+<li>Generating Cloud formation template for the CDK project, output should show something like below as our project is already containing a sample app with Queue and SNS integration.</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cdk synth
+</span></span></code></pre></div><p><img alt="AWS CDK - Workshop - Synth Output" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Synth%20Output.png"></p>
+<p><img alt="AWS CDK - Workshop - Sample app code" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Sample%20app%20code.png"></p>
+<ol start="3">
+<li>Before we deploy our project, we need to bootstrap the CDK so that it will create necessary recourses to store it&rsquo;s assets and other things</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cdk bootstrap
+</span></span></code></pre></div><ol start="4">
+<li>Now we can deploy this sample app using CDK&rsquo;s deploy command</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>cdk deploy
+</span></span></code></pre></div><p><img alt="AWS CDK - Workshop - CF Stack" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20CF%20Stack.png"></p>
+<p><img alt="AWS CDK - Workshop - Deploy output" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Deploy%20output.png"></p>
+<h3 id="custom-constructs---hit-counter">Custom constructs - Hit Counter<a hidden class="anchor" aria-hidden="true" href="#custom-constructs---hit-counter">#</a></h3>
+<p>We can also create our own constructs to increase re usability of the resources. Let&rsquo;s create something like below</p>
+<p><img alt="AWS CDK - Workshop - Custom Construct Architecture" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Custom%20Construct%20Architecture.png"></p>
+<ol>
+<li>Create a new file under lib called <strong>hitcounter.ts</strong> with the following content:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">IFunction</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#34;aws-cdk-lib/aws-lambda&#34;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#34;constructs&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">HitCounterProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">/** the function for which we want to count url hits **/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">downstream</span>: <span style="color:#66d9ef">IFunction</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">HitCounter</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Construct</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props</span>: <span style="color:#66d9ef">HitCounterProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// TODO
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ul>
+<li>We declared a new construct class called <code>HitCounter</code>.</li>
+<li>As usual, constructor arguments are <code>scope</code>, <code>id</code> and <code>props</code>, and we propagate them to the <code>cdk.Construct</code> base class.</li>
+<li>The <code>props</code> argument is of type <code>HitCounterProps</code> which includes a single property <code>downstream</code> of type <code>lambda.IFunction</code>. This is where we are going to &ldquo;plug in&rdquo; the Lambda function we created in the previous chapter so it can be hit-counted.</li>
+</ul>
+<ol start="2">
+<li>Now let&rsquo;s write the Lambda handler code for our hit counter, create the file <strong>lambda/hitcounter.js</strong></li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDB</span> } <span style="color:#f92672">=</span> <span style="color:#66d9ef">require</span>(<span style="color:#e6db74">&#34;@aws-sdk/client-dynamodb&#34;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">Lambda</span>, <span style="color:#a6e22e">InvokeCommand</span> } <span style="color:#f92672">=</span> <span style="color:#66d9ef">require</span>(<span style="color:#e6db74">&#34;@aws-sdk/client-lambda&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> (<span style="color:#a6e22e">event</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#34;request:&#34;</span>, <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">event</span>, <span style="color:#66d9ef">undefined</span>, <span style="color:#ae81ff">2</span>));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// create AWS SDK clients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dynamo</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DynamoDB</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">lambda</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Lambda</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// update dynamo entry for &#34;path&#34; with hits++
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">dynamo</span>.<span style="color:#a6e22e">updateItem</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span>: <span style="color:#66d9ef">process.env.HITS_TABLE_NAME</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">path</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">S</span>: <span style="color:#66d9ef">event.path</span> } },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ADD hits :incr&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> { <span style="color:#e6db74">&#34;:incr&#34;</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">N</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;1&#34;</span> } },
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// call downstream function and capture response
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">command</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">InvokeCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">FunctionName</span>: <span style="color:#66d9ef">process.env.DOWNSTREAM_FUNCTION_NAME</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Payload</span>: <span style="color:#66d9ef">JSON.stringify</span>(<span style="color:#a6e22e">event</span>),
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">Payload</span> } <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">lambda</span>.<span style="color:#a6e22e">send</span>(<span style="color:#a6e22e">command</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">Buffer</span>.<span style="color:#66d9ef">from</span>(<span style="color:#a6e22e">Payload</span>).<span style="color:#a6e22e">toString</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#34;downstream response:&#34;</span>, <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">result</span>, <span style="color:#66d9ef">undefined</span>, <span style="color:#ae81ff">2</span>));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// return response back to upstream caller
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">result</span>);
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><ul>
+<li><code>HITS_TABLE_NAME</code> is the name of the DynamoDB table to use for storage.</li>
+<li><code>DOWNSTREAM_FUNCTION_NAME</code> is the name of the downstream AWS Lambda function.</li>
+</ul>
+<ol start="3">
+<li> Now, let&rsquo;s define the AWS Lambda function and the DynamoDB table in our <code>HitCounter</code> construct. Go back to <code>lib/hitcounter.ts</code> and add the following code:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">AttributeType</span>, <span style="color:#a6e22e">Table</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#34;aws-cdk-lib/aws-dynamodb&#34;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Code</span>, Function, <span style="color:#a6e22e">IFunction</span>, <span style="color:#a6e22e">Runtime</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#34;aws-cdk-lib/aws-lambda&#34;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#34;constructs&#34;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">HitCounterProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">/** the function for which we want to count url hits **/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">downstream</span>: <span style="color:#66d9ef">IFunction</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">HitCounter</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Construct</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">/** allows accessing the counter function */</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">readonly</span> <span style="color:#a6e22e">handler</span>: <span style="color:#66d9ef">Function</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props</span>: <span style="color:#66d9ef">HitCounterProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">table</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Table</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;Hits&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;path&#34;</span>, <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span> },
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;HitCounterHandler&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">Runtime.NODEJS_18_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;hitcounter.handler&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">Code.fromAsset</span>(<span style="color:#e6db74">&#34;lambda&#34;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">DOWNSTREAM_FUNCTION_NAME</span>: <span style="color:#66d9ef">props.downstream.functionName</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">HITS_TABLE_NAME</span>: <span style="color:#66d9ef">table.tableName</span>,
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><ul>
+<li>We defined a DynamoDB table with <code>path</code> as the partition key.</li>
+<li>We defined a Lambda function which is bound to the <code>lambda/hitcounter.handler</code> code.</li>
+<li>We <strong>wired</strong> the Lambda&rsquo;s environment variables to the <code>functionName</code> and <code>tableName</code> of our resources.</li>
+</ul>
+<ol start="4">
+<li>Our hit counter is ready. Let&rsquo;s use it in our app. Open <code>lib/cdk-workshop-stack.ts</code> and modify your stack to look like this, also created hello.js file as mentioned below</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">/ defines an AWS Lambda resource</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">hello</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;HelloHandler&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">Runtime.NODEJS_18_X</span>, <span style="color:#75715e">// execution environment
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">Code.fromAsset</span>(<span style="color:#e6db74">&#34;lambda&#34;</span>), <span style="color:#75715e">// code loaded from &#34;lambda&#34; directory
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;hello.handler&#34;</span>, <span style="color:#75715e">// file is &#34;hello&#34;, function is &#34;handler&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">helloWithCounter</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">HitCounter</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;HelloHitCounter&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">downstream</span>: <span style="color:#66d9ef">hello</span>,
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// defines an API Gateway REST API resource backed by our &#34;hello&#34; function.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">gateway</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">LambdaRestApi</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;Endpoint&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span>: <span style="color:#66d9ef">helloWithCounter.handler</span>,
+</span></span><span style="display:flex;"><span>    });
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#75715e">// lambda/hello.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> (<span style="color:#a6e22e">event</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#34;request:&#34;</span>, <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">event</span>, <span style="color:#66d9ef">undefined</span>, <span style="color:#ae81ff">2</span>));
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span>: <span style="color:#66d9ef">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> { <span style="color:#e6db74">&#34;Content-Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;text/plain&#34;</span> },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Good Night, CDK! You&#39;ve hit </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">path</span><span style="color:#e6db74">}</span><span style="color:#960050;background-color:#1e0010">\</span><span style="color:#e6db74">n`</span>,
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><ol start="5">
+<li>As everything we configured, we can now deploy this and test it and we can see something went wrong. Let&rsquo;s check what&rsquo;s wrong with cloud watch logs</li>
+</ol>
+<p><img alt="AWS CDK - Workshop - Hitcounter Deploy output" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Hitcounter%20Deploy%20output.png"></p>
+<p><img alt="AWS CDK - Workshop - First time Error" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20First%20time%20Error.png"></p>
+<p><img alt="AWS CDK - Workshop - Db permission issue" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Db%20permission%20issue.png"></p>
+<ol start="6">
+<li>We can now see our Lambda function can&rsquo;t write to our DynamoDB table, let&rsquo;s give our Lambda&rsquo;s execution role permissions to read/write from our table in <code>lib/hitcounter.ts</code>.</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">grantReadWriteData</span>(<span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">handler</span>);
+</span></span></code></pre></div><p><img alt="AWS CDK - Workshop - Db Grant Permission" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Db%20Grant%20Permission.png"></p>
+<ol start="7">
+<li>Let&rsquo;s deploy and test again, still getting this 5xx error! Let&rsquo;s look at our CloudWatch logs again.</li>
+</ol>
+<p><img alt="AWS CDK - Workshop - Invoke Function Issue" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Invoke%20Function%20Issue.png"></p>
+<p><img alt="AWS CDK - Workshop - Invoke Issue Logs" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Invoke%20Issue%20Logs.png"></p>
+<ol start="8">
+<li>Our hit counter doesn&rsquo;t have permissions to invoke the downstream lambda function. So, let&rsquo;s add the lines to <code>lib/hitcounter.ts</code> as shown:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span> <span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">downstream</span>.<span style="color:#a6e22e">grantInvoke</span>(<span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">handler</span>);
+</span></span></code></pre></div><ol start="9">
+<li>Now let&rsquo;s deploy and test it again. This time it works</li>
+</ol>
+<p><img alt="AWS CDK - Workshop - Final output" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Workshop%20-%20Final%20output.png"></p>
+
+
+  </div>
 
   <footer class="post-footer">
     <ul class="post-tags">
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/">Aws-Training-Tasks</a></li>
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/%23cdk/">#Cdk</a></li>
     </ul>
   </footer>
 </article>

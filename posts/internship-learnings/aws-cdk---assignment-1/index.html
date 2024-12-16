@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>AWS CDK - Assignment 1 | Akash´s corner</title>
+<meta name="keywords" content="aws-training-tasks, #cdk">
+<meta name="description" content="
+After creating the project replace the existing resources with the following code inside stack file
+
+    const kms_key = new Key(this, &#34;KmsKey&#34;);
+
+    new Bucket(this, &#34;S3Bucket&#34;, {
+      bucketName: &#34;&#34;,
+      versioned: true,
+      encryption: BucketEncryption.KMS,
+      encryptionKey: kms_key,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+First we created the KMS key and later we used that key to encrypt our bucket objects
+
+
+Let&rsquo;s add KMS key created test
+
+test(&#34;Kms key is created&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  template.resourceCountIs(&#34;AWS::KMS::Key&#34;, 1);
+
+});
+
+Let&rsquo;s add another test for if KMS encryption is enabled for the bucket or not
+
+test(&#34;SSE KMS encryption is enabled for the bucket&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  const expectedBucketProperties = {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        {
+          ServerSideEncryptionByDefault: {
+            SSEAlgorithm: &#34;aws:kms&#34;,
+          },
+        },
+      ],
+    },
+  };
+
+  template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties);
+});
+
+Let&rsquo;s add another test to check if the created key only is being used for objects encryption
+
+test(&#34;Created KMS key is being utilized by bucket for encryption&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  const expectedBucketProperties = {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        {
+          ServerSideEncryptionByDefault: {
+            KMSMasterKeyID: {
+              &#34;Fn::GetAtt&#34;: [&#34;KmsKey46693ADD&#34;, &#34;Arn&#34;],
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties);
+});
+
+Let&rsquo;s execute the tests, and we can see that all passed
+
+">
+<meta name="author" content="">
+<link rel="canonical" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/">
+<link crossorigin="anonymous" href="/akashblog/assets/css/stylesheet.d6fcd20a4fb86efa4dfac8ec95da60244cc8871042183da1ef28e3a762ad79c8.css" integrity="sha256-1vzSCk&#43;4bvpN&#43;sjsldpgJEzIhxBCGD2h7yjjp2Ktecg=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://akash-kola-test.github.io/akashblog/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://akash-kola-test.github.io/akashblog/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://akash-kola-test.github.io/akashblog/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://akash-kola-test.github.io/akashblog/apple-touch-icon.png">
+<link rel="mask-icon" href="https://akash-kola-test.github.io/akashblog/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:url" content="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/">
+  <meta property="og:site_name" content="Akash´s corner">
+  <meta property="og:title" content="AWS CDK - Assignment 1">
+  <meta property="og:description" content=" After creating the project replace the existing resources with the following code inside stack file const kms_key = new Key(this, &#34;KmsKey&#34;); new Bucket(this, &#34;S3Bucket&#34;, { bucketName: &#34;&#34;, versioned: true, encryption: BucketEncryption.KMS, encryptionKey: kms_key, removalPolicy: cdk.RemovalPolicy.DESTROY, }); First we created the KMS key and later we used that key to encrypt our bucket objects Let’s add KMS key created test test(&#34;Kms key is created&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); template.resourceCountIs(&#34;AWS::KMS::Key&#34;, 1); }); Let’s add another test for if KMS encryption is enabled for the bucket or not test(&#34;SSE KMS encryption is enabled for the bucket&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { SSEAlgorithm: &#34;aws:kms&#34;, }, }, ], }, }; template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties); }); Let’s add another test to check if the created key only is being used for objects encryption test(&#34;Created KMS key is being utilized by bucket for encryption&#34;, () =&gt; { const app = new App(); const stack = new Assignment1Stack(app, &#34;teststack&#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { KMSMasterKeyID: { &#34;Fn::GetAtt&#34;: [&#34;KmsKey46693ADD&#34;, &#34;Arn&#34;], }, }, }, ], }, }; template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties); }); Let’s execute the tests, and we can see that all passed ">
+  <meta property="og:locale" content="en-us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-12-16T00:00:00+00:00">
+    <meta property="article:modified_time" content="2024-12-16T00:00:00+00:00">
+    <meta property="article:tag" content="Aws-Training-Tasks">
+    <meta property="article:tag" content="#Cdk">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AWS CDK - Assignment 1">
+<meta name="twitter:description" content="
+After creating the project replace the existing resources with the following code inside stack file
+
+    const kms_key = new Key(this, &#34;KmsKey&#34;);
+
+    new Bucket(this, &#34;S3Bucket&#34;, {
+      bucketName: &#34;&#34;,
+      versioned: true,
+      encryption: BucketEncryption.KMS,
+      encryptionKey: kms_key,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+First we created the KMS key and later we used that key to encrypt our bucket objects
+
+
+Let&rsquo;s add KMS key created test
+
+test(&#34;Kms key is created&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  template.resourceCountIs(&#34;AWS::KMS::Key&#34;, 1);
+
+});
+
+Let&rsquo;s add another test for if KMS encryption is enabled for the bucket or not
+
+test(&#34;SSE KMS encryption is enabled for the bucket&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  const expectedBucketProperties = {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        {
+          ServerSideEncryptionByDefault: {
+            SSEAlgorithm: &#34;aws:kms&#34;,
+          },
+        },
+      ],
+    },
+  };
+
+  template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties);
+});
+
+Let&rsquo;s add another test to check if the created key only is being used for objects encryption
+
+test(&#34;Created KMS key is being utilized by bucket for encryption&#34;, () =&gt; {
+  const app = new App();
+  const stack = new Assignment1Stack(app, &#34;teststack&#34;);
+
+  const template = Template.fromStack(stack);
+
+  const expectedBucketProperties = {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        {
+          ServerSideEncryptionByDefault: {
+            KMSMasterKeyID: {
+              &#34;Fn::GetAtt&#34;: [&#34;KmsKey46693ADD&#34;, &#34;Arn&#34;],
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  template.hasResourceProperties(&#34;AWS::S3::Bucket&#34;, expectedBucketProperties);
+});
+
+Let&rsquo;s execute the tests, and we can see that all passed
+
+">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "AWS CDK - Assignment 1",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AWS CDK - Assignment 1",
+  "name": "AWS CDK - Assignment 1",
+  "description": " After creating the project replace the existing resources with the following code inside stack file const kms_key = new Key(this, \u0026#34;KmsKey\u0026#34;); new Bucket(this, \u0026#34;S3Bucket\u0026#34;, { bucketName: \u0026#34;\u0026#34;, versioned: true, encryption: BucketEncryption.KMS, encryptionKey: kms_key, removalPolicy: cdk.RemovalPolicy.DESTROY, }); First we created the KMS key and later we used that key to encrypt our bucket objects Let\u0026rsquo;s add KMS key created test test(\u0026#34;Kms key is created\u0026#34;, () =\u0026gt; { const app = new App(); const stack = new Assignment1Stack(app, \u0026#34;teststack\u0026#34;); const template = Template.fromStack(stack); template.resourceCountIs(\u0026#34;AWS::KMS::Key\u0026#34;, 1); }); Let\u0026rsquo;s add another test for if KMS encryption is enabled for the bucket or not test(\u0026#34;SSE KMS encryption is enabled for the bucket\u0026#34;, () =\u0026gt; { const app = new App(); const stack = new Assignment1Stack(app, \u0026#34;teststack\u0026#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { SSEAlgorithm: \u0026#34;aws:kms\u0026#34;, }, }, ], }, }; template.hasResourceProperties(\u0026#34;AWS::S3::Bucket\u0026#34;, expectedBucketProperties); }); Let\u0026rsquo;s add another test to check if the created key only is being used for objects encryption test(\u0026#34;Created KMS key is being utilized by bucket for encryption\u0026#34;, () =\u0026gt; { const app = new App(); const stack = new Assignment1Stack(app, \u0026#34;teststack\u0026#34;); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { KMSMasterKeyID: { \u0026#34;Fn::GetAtt\u0026#34;: [\u0026#34;KmsKey46693ADD\u0026#34;, \u0026#34;Arn\u0026#34;], }, }, }, ], }, }; template.hasResourceProperties(\u0026#34;AWS::S3::Bucket\u0026#34;, expectedBucketProperties); }); Let\u0026rsquo;s execute the tests, and we can see that all passed ",
+  "keywords": [
+    "aws-training-tasks", "#cdk"
+  ],
+  "articleBody": " After creating the project replace the existing resources with the following code inside stack file const kms_key = new Key(this, \"KmsKey\"); new Bucket(this, \"S3Bucket\", { bucketName: \"\", versioned: true, encryption: BucketEncryption.KMS, encryptionKey: kms_key, removalPolicy: cdk.RemovalPolicy.DESTROY, }); First we created the KMS key and later we used that key to encrypt our bucket objects Let’s add KMS key created test test(\"Kms key is created\", () =\u003e { const app = new App(); const stack = new Assignment1Stack(app, \"teststack\"); const template = Template.fromStack(stack); template.resourceCountIs(\"AWS::KMS::Key\", 1); }); Let’s add another test for if KMS encryption is enabled for the bucket or not test(\"SSE KMS encryption is enabled for the bucket\", () =\u003e { const app = new App(); const stack = new Assignment1Stack(app, \"teststack\"); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { SSEAlgorithm: \"aws:kms\", }, }, ], }, }; template.hasResourceProperties(\"AWS::S3::Bucket\", expectedBucketProperties); }); Let’s add another test to check if the created key only is being used for objects encryption test(\"Created KMS key is being utilized by bucket for encryption\", () =\u003e { const app = new App(); const stack = new Assignment1Stack(app, \"teststack\"); const template = Template.fromStack(stack); const expectedBucketProperties = { BucketEncryption: { ServerSideEncryptionConfiguration: [ { ServerSideEncryptionByDefault: { KMSMasterKeyID: { \"Fn::GetAtt\": [\"KmsKey46693ADD\", \"Arn\"], }, }, }, ], }, }; template.hasResourceProperties(\"AWS::S3::Bucket\", expectedBucketProperties); }); Let’s execute the tests, and we can see that all passed ",
+  "wordCount" : "227",
+  "inLanguage": "en",
+  "datePublished": "2024-12-16T00:00:00Z",
+  "dateModified": "2024-12-16T00:00:00Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Akash´s corner",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://akash-kola-test.github.io/akashblog/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://akash-kola-test.github.io/akashblog/" accesskey="h" title="Akash´s corner (Alt + H)">Akash´s corner</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/posts" title="Blog">
+                    <span>Blog</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/about" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/contact" title="Contact">
+                    <span>Contact</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      AWS CDK - Assignment 1
+    </h1>
+    <div class="post-meta"><span title='2024-12-16 00:00:00 +0000 UTC'>December 16, 2024</span>
+
+</div>
+  </header> 
+  <div class="post-content"><ol>
+<li>After creating the project replace the existing resources with the following code inside stack file</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">kms_key</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Key</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;KmsKey&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Bucket</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#34;S3Bucket&#34;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">bucketName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">versioned</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">encryption</span>: <span style="color:#66d9ef">BucketEncryption.KMS</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">encryptionKey</span>: <span style="color:#66d9ef">kms_key</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">removalPolicy</span>: <span style="color:#66d9ef">cdk.RemovalPolicy.DESTROY</span>,
+</span></span><span style="display:flex;"><span>    });
+</span></span></code></pre></div><ul>
+<li>First we created the KMS key and later we used that key to encrypt our bucket objects</li>
+</ul>
+<ol start="2">
+<li>Let&rsquo;s add KMS key created test</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#a6e22e">test</span>(<span style="color:#e6db74">&#34;Kms key is created&#34;</span>, () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">App</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">stack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Assignment1Stack</span>(<span style="color:#a6e22e">app</span>, <span style="color:#e6db74">&#34;teststack&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">template</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">Template</span>.<span style="color:#a6e22e">fromStack</span>(<span style="color:#a6e22e">stack</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">template</span>.<span style="color:#a6e22e">resourceCountIs</span>(<span style="color:#e6db74">&#34;AWS::KMS::Key&#34;</span>, <span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><ol start="3">
+<li>Let&rsquo;s add another test for if KMS encryption is enabled for the bucket or not</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#a6e22e">test</span>(<span style="color:#e6db74">&#34;SSE KMS encryption is enabled for the bucket&#34;</span>, () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">App</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">stack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Assignment1Stack</span>(<span style="color:#a6e22e">app</span>, <span style="color:#e6db74">&#34;teststack&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">template</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">Template</span>.<span style="color:#a6e22e">fromStack</span>(<span style="color:#a6e22e">stack</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">expectedBucketProperties</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">BucketEncryption</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ServerSideEncryptionConfiguration</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">ServerSideEncryptionByDefault</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">SSEAlgorithm</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;aws:kms&#34;</span>,
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      ],
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">template</span>.<span style="color:#a6e22e">hasResourceProperties</span>(<span style="color:#e6db74">&#34;AWS::S3::Bucket&#34;</span>, <span style="color:#a6e22e">expectedBucketProperties</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><ol start="4">
+<li>Let&rsquo;s add another test to check if the created key only is being used for objects encryption</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ts" data-lang="ts"><span style="display:flex;"><span><span style="color:#a6e22e">test</span>(<span style="color:#e6db74">&#34;Created KMS key is being utilized by bucket for encryption&#34;</span>, () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">app</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">App</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">stack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Assignment1Stack</span>(<span style="color:#a6e22e">app</span>, <span style="color:#e6db74">&#34;teststack&#34;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">template</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">Template</span>.<span style="color:#a6e22e">fromStack</span>(<span style="color:#a6e22e">stack</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">expectedBucketProperties</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">BucketEncryption</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ServerSideEncryptionConfiguration</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">ServerSideEncryptionByDefault</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">KMSMasterKeyID</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>              <span style="color:#e6db74">&#34;Fn::GetAtt&#34;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#34;KmsKey46693ADD&#34;</span>, <span style="color:#e6db74">&#34;Arn&#34;</span>],
+</span></span><span style="display:flex;"><span>            },
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>      ],
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">template</span>.<span style="color:#a6e22e">hasResourceProperties</span>(<span style="color:#e6db74">&#34;AWS::S3::Bucket&#34;</span>, <span style="color:#a6e22e">expectedBucketProperties</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span></code></pre></div><ol start="5">
+<li>Let&rsquo;s execute the tests, and we can see that all passed</li>
+</ol>
+<p><img alt="AWS CDK - Assignment 1 - Tests passed" loading="lazy" src="/akashblog/images/AWS%20CDK%20-%20Assignment%201%20-%20Tests%20passed.png"></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/">Aws-Training-Tasks</a></li>
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/%23cdk/">#Cdk</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2024 <a href="https://akash-kola-test.github.io/akashblog/">Akash´s corner</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>
