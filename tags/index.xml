@@ -6,8 +6,22 @@
     <description>Recent content in Tags on Akash´s corner</description>
     <generator>Hugo -- 0.139.3</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 09 Dec 2024 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 16 Dec 2024 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://akash-kola-test.github.io/akashblog/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Aws</title>
+      <link>https://akash-kola-test.github.io/akashblog/tags/aws/</link>
+      <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/tags/aws/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Kinesis</title>
+      <link>https://akash-kola-test.github.io/akashblog/tags/kinesis/</link>
+      <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/tags/kinesis/</guid>
+      <description></description>
+    </item>
     <item>
       <title>Aws-Training-Tasks</title>
       <link>https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/</link>
