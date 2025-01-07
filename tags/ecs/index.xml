@@ -10,9 +10,9 @@
     <atom:link href="https://akash-kola-test.github.io/akashblog/tags/ecs/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>AWS ECS - Assignment 1</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/</link>
       <pubDate>Mon, 09 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/</guid>
       <description>&lt;ol&gt;
 &lt;li&gt;Let&amp;rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I&amp;rsquo;m using mappings&lt;/li&gt;
 &lt;/ol&gt;

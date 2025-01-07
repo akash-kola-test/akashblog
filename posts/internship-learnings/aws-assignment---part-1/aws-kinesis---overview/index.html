@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>AWS Kinesis - Overview | Akash´s corner</title>
+<meta name="keywords" content="aws, kinesis">
+<meta name="description" content="We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time
+
+A Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it
+Data Record is nothing but a unit of data which might indicate some event or just a message
+Capacity Mode
+We you can choose between an on-demand mode and a provisioned mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.">
+<meta name="author" content="">
+<link rel="canonical" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/">
+<link crossorigin="anonymous" href="/akashblog/assets/css/stylesheet.d6fcd20a4fb86efa4dfac8ec95da60244cc8871042183da1ef28e3a762ad79c8.css" integrity="sha256-1vzSCk&#43;4bvpN&#43;sjsldpgJEzIhxBCGD2h7yjjp2Ktecg=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://akash-kola-test.github.io/akashblog/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://akash-kola-test.github.io/akashblog/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://akash-kola-test.github.io/akashblog/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://akash-kola-test.github.io/akashblog/apple-touch-icon.png">
+<link rel="mask-icon" href="https://akash-kola-test.github.io/akashblog/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:url" content="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/">
+  <meta property="og:site_name" content="Akash´s corner">
+  <meta property="og:title" content="AWS Kinesis - Overview">
+  <meta property="og:description" content="We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time
+A Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it
+Data Record is nothing but a unit of data which might indicate some event or just a message
+Capacity Mode We you can choose between an on-demand mode and a provisioned mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.">
+  <meta property="og:locale" content="en-us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-12-16T00:00:00+00:00">
+    <meta property="article:modified_time" content="2024-12-16T00:00:00+00:00">
+    <meta property="article:tag" content="Aws">
+    <meta property="article:tag" content="Kinesis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AWS Kinesis - Overview">
+<meta name="twitter:description" content="We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time
+
+A Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it
+Data Record is nothing but a unit of data which might indicate some event or just a message
+Capacity Mode
+We you can choose between an on-demand mode and a provisioned mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "AWS Kinesis - Overview",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AWS Kinesis - Overview",
+  "name": "AWS Kinesis - Overview",
+  "description": "We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time\nA Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it\nData Record is nothing but a unit of data which might indicate some event or just a message\nCapacity Mode We you can choose between an on-demand mode and a provisioned mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.\n",
+  "keywords": [
+    "aws", "kinesis"
+  ],
+  "articleBody": "We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time\nA Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it\nData Record is nothing but a unit of data which might indicate some event or just a message\nCapacity Mode We you can choose between an on-demand mode and a provisioned mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.\nThe total capacity of a data stream is the sum of the capacities of its shards. We can increase or decrease the number of shards in a data stream as needed and we are charged for the number of shards at an hourly rate.\nRetention Period The retention period is the length of time that data records are accessible after they are added to the stream. A stream’s retention period is set to a default of 24 hours after creation. We can increase the retention period up to 8760 hours (365 days)\nShard A shard is a uniquely identified sequence of data records in a stream. A stream is composed of one or more shards, each of which provides a fixed unit of capacity. Each shard can support up to 5 transactions per second for reads, up to a maximum total data read rate of 2 MB per second and up to 1,000 records per second for writes, up to a maximum total data write rate of 1 MB per second (including partition keys). The data capacity of your stream is a function of the number of shards that you specify for the stream. The total capacity of the stream is the sum of the capacities of its shards.\nPartition Key A partition key is used to group data by shard within a stream. Kinesis Data Streams segregates the data records belonging to a stream into multiple shards. It uses the partition key that is associated with each data record to determine which shard a given data record belongs to.\n",
+  "wordCount" : "370",
+  "inLanguage": "en",
+  "datePublished": "2024-12-16T00:00:00Z",
+  "dateModified": "2024-12-16T00:00:00Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Akash´s corner",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://akash-kola-test.github.io/akashblog/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://akash-kola-test.github.io/akashblog/" accesskey="h" title="Akash´s corner (Alt + H)">Akash´s corner</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/posts" title="Blog">
+                    <span>Blog</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/about" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/contact" title="Contact">
+                    <span>Contact</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      AWS Kinesis - Overview
+    </h1>
+    <div class="post-meta"><span title='2024-12-16 00:00:00 +0000 UTC'>December 16, 2024</span>
+
+</div>
+  </header> 
+  <div class="post-content"><p>We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time</p>
+<p><img alt="AWS Kinesis - High Level Architecture" loading="lazy" src="/akashblog/images/AWS%20Kinesis%20-%20High%20Level%20Architecture.png"></p>
+<p>A Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it</p>
+<p>Data Record is nothing but a unit of data which might indicate some event or just a message</p>
+<h3 id="capacity-mode">Capacity Mode<a hidden class="anchor" aria-hidden="true" href="#capacity-mode">#</a></h3>
+<p>We you can choose between an <strong>on-demand</strong> mode and a <strong>provisioned</strong> mode for data streams. With on-demand mode, Kinesis will automatically manages the shards in order to provide necessary throughput. But with provisioned mode we must specify the number of shards for the data stream.</p>
+<p>The total capacity of a data stream is the sum of the capacities of its shards. We can increase or decrease the number of shards in a data stream as needed and we are charged for the number of shards at an hourly rate.</p>
+<h3 id="retention-period">Retention Period<a hidden class="anchor" aria-hidden="true" href="#retention-period">#</a></h3>
+<p>The <em>retention period</em> is the length of time that data records are accessible after they are added to the stream. A stream’s retention period is set to a default of 24 hours after creation. We can increase the retention period up to 8760 hours (365 days)</p>
+<h3 id="shard">Shard<a hidden class="anchor" aria-hidden="true" href="#shard">#</a></h3>
+<p>A <em>shard</em> is a uniquely identified sequence of data records in a stream. A stream is composed of one or more shards, each of which provides a fixed unit of capacity. Each shard can support up to 5 transactions per second for reads, up to a maximum total data read rate of 2 MB per second and up to 1,000 records per second for writes, up to a maximum total data write rate of 1 MB per second (including partition keys). The data capacity of your stream is a function of the number of shards that you specify for the stream. The total capacity of the stream is the sum of the capacities of its shards.</p>
+<h3 id="partition-key">Partition Key<a hidden class="anchor" aria-hidden="true" href="#partition-key">#</a></h3>
+<p>A <em>partition key</em> is used to group data by shard within a stream. Kinesis Data Streams segregates the data records belonging to a stream into multiple shards. It uses the partition key that is associated with each data record to determine which shard a given data record belongs to.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/aws/">Aws</a></li>
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/kinesis/">Kinesis</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="https://akash-kola-test.github.io/akashblog/">Akash´s corner</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

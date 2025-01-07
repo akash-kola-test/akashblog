@@ -6,13 +6,37 @@
     <description>Recent content in Posts on Akash´s corner</description>
     <generator>Hugo -- 0.139.3</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 16 Dec 2024 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 07 Jan 2025 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://akash-kola-test.github.io/akashblog/posts/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>Deep dive into RDS proxy - AWS re Invent 2020</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/deep-dive-into-rds-proxy---aws-re-invent-2020/</link>
+      <pubDate>Tue, 07 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/deep-dive-into-rds-proxy---aws-re-invent-2020/</guid>
+      <description>&lt;h2 id=&#34;introduction&#34;&gt;Introduction&lt;/h2&gt;
+&lt;p&gt;Here are the today&amp;rsquo;s application needs in terms of RDS (or) database&lt;/p&gt;
+&lt;h3 id=&#34;scalability&#34;&gt;Scalability&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Scale to hundreds of thousands of connections&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img alt=&#34;Deep dive into RDS proxy - AWS re Invent 2020 - Scalability&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Deep%20dive%20into%20RDS%20proxy%20-%20AWS%20re%20Invent%202020%20-%20Scalability.png&#34;&gt;&lt;/p&gt;
+&lt;h3 id=&#34;availability&#34;&gt;Availability&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Increase app availability by reducing DB failover times&lt;/li&gt;
+&lt;li&gt;no need to maintain application logic for handling failovers&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img alt=&#34;Deep dive into RDS proxy - AWS re Invent 2020 - Availability&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Deep%20dive%20into%20RDS%20proxy%20-%20AWS%20re%20Invent%202020%20-%20Availability.png&#34;&gt;&lt;/p&gt;
+&lt;h3 id=&#34;security&#34;&gt;Security&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Manage app data security with DB access controls&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;img alt=&#34;Deep dive into RDS proxy - AWS re Invent 2020 - Security&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Deep%20dive%20into%20RDS%20proxy%20-%20AWS%20re%20Invent%202020%20-%20Security.png&#34;&gt;&lt;/p&gt;</description>
+    </item>
+    <item>
       <title>AWS CDK - Assignment 1</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---assignment-1/</link>
       <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---assignment-1/</guid>
       <description>&lt;ol&gt;
 &lt;li&gt;After creating the project replace the existing resources with the following code inside stack file&lt;/li&gt;
 &lt;/ol&gt;
@@ -95,9 +119,9 @@
     </item>
     <item>
       <title>AWS Kinesis - Overview</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-kinesis---overview/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/</link>
       <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-kinesis---overview/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-kinesis---overview/</guid>
       <description>&lt;p&gt;We can use Amazon Kinesis Data Streams to collect and process large streams of data records in real time&lt;/p&gt;
 &lt;p&gt;&lt;img alt=&#34;AWS Kinesis - High Level Architecture&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/AWS%20Kinesis%20-%20High%20Level%20Architecture.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;A Kinesis stream is made of set of shards. Each shard has a sequence of records. Each data record has a sequence number assigned to it&lt;/p&gt;
@@ -107,9 +131,9 @@
     </item>
     <item>
       <title>AWS CDK - Workshop</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---workshop/</link>
       <pubDate>Tue, 10 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---workshop/</guid>
       <description>&lt;h3 id=&#34;prerequisites&#34;&gt;Prerequisites&lt;/h3&gt;
 &lt;ul&gt;
 &lt;li&gt;AWS CLI&lt;/li&gt;
@@ -131,9 +155,9 @@
     </item>
     <item>
       <title>AWS ECS - Assignment 1</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/</link>
       <pubDate>Mon, 09 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-ecs---assignment-1/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/</guid>
       <description>&lt;ol&gt;
 &lt;li&gt;Let&amp;rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I&amp;rsquo;m using mappings&lt;/li&gt;
 &lt;/ol&gt;
@@ -686,6 +710,25 @@
 &lt;p&gt;Basically each series and field maps to a unique ID as seen in the below picture&lt;/p&gt;
 &lt;p&gt;&lt;img alt=&#34;Series and fields&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Series%20and%20fields.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;We can arrange the data with key as ID and time, and the value being the field value and the key is always sorted&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title></title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/</guid>
+      <description>&lt;ol&gt;
+&lt;li&gt;Understand how ClientPasswordAuthType works with RDS Proxy&lt;/li&gt;
+&lt;li&gt;In scalability demo, we can showcase number of database connections and number of proxy connections to prove that proxy can take connections, but how to prove all those connections are being served. I mean, all those connections got it work done correctly without errors?&lt;/li&gt;
+&lt;li&gt;Why DNS doesn&amp;rsquo;t take effect in the failover demo? It able to recover in just 7 seconds.&lt;/li&gt;
+&lt;li&gt;Will every transaction in queue will get succeed on DB failover?&lt;/li&gt;
+&lt;li&gt;Some situations where multiplexing may not work, Like when we change session state
+&lt;ol&gt;
+&lt;li&gt;If your application is using session state, it is not obvious to re-use that connection&lt;/li&gt;
+&lt;li&gt;For the lifetime of the application connection, it will be pinned to a specific database connection and it won&amp;rsquo;t be used for multiplexed.
+&lt;img alt=&#34;Doubts - Pinning&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Doubts%20-%20Pinning.png&#34;&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/li&gt;
+&lt;/ol&gt;</description>
     </item>
   </channel>
 </rss>

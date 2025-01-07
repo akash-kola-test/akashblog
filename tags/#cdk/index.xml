@@ -10,9 +10,9 @@
     <atom:link href="https://akash-kola-test.github.io/akashblog/tags/%23cdk/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>AWS CDK - Assignment 1</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---assignment-1/</link>
       <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---assignment-1/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---assignment-1/</guid>
       <description>&lt;ol&gt;
 &lt;li&gt;After creating the project replace the existing resources with the following code inside stack file&lt;/li&gt;
 &lt;/ol&gt;
@@ -95,9 +95,9 @@
     </item>
     <item>
       <title>AWS CDK - Workshop</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</link>
+      <link>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---workshop/</link>
       <pubDate>Tue, 10 Dec 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-cdk---workshop/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-cdk---workshop/</guid>
       <description>&lt;h3 id=&#34;prerequisites&#34;&gt;Prerequisites&lt;/h3&gt;
 &lt;ul&gt;
 &lt;li&gt;AWS CLI&lt;/li&gt;

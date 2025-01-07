@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>AWS ECS - Assignment 1 | Akash´s corner</title>
+<meta name="keywords" content="aws-training-tasks, ecs">
+<meta name="description" content="
+Let&rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I&rsquo;m using mappings
+
+Mappings:
+  PolicyConfigs:
+    DocumentVersions:
+      CurrentVersion: &#34;2012-10-17&#34;
+    AWSManagedPolicyArns:
+      AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;
+      TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;
+ECSAgentAndTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSAgentAndTaskRole
+      AssumeRolePolicyDocument:
+        Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - &#34;ec2.amazonaws.com&#34;
+            - &#34;ecs-tasks.amazonaws.com&#34;
+      ManagedPolicyArns:
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]
+
+Now let&rsquo;s create the IAM instance profile to attach the above role to our EC2 instances
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+        InstanceProfileName: ECSEC2IamInstanceProfile
+        Roles:
+          - !Ref EC2IamRole 
+
+Configure security group and ingress traffic for our EC2 Host and tasks
+
+EC2AndTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: &#34;Security group for tasks and EC2 host&#34;
+      VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ]
+
+  EC2AndTaskSecurityGroupIngressWeb1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressWeb2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+
+Let&rsquo;s create launch template for our Auto scaling group
+
+EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSAgentLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        ImageId: &#34;ami-0453ec754f44f9a4a&#34;
+        InstanceType: &#34;t2.micro&#34;
+        KeyName: RegularSshPemKey
+        SecurityGroupIds:
+        - !GetAtt EC2AndTaskSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            # install docker
+            yum update -y
+            yum install -y docker
+            usermod -a -G docker ec2-user
+            systemctl enable --now --no-block docker.service
+
+            # install ecs agent
+            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+            systemctl enable --now --no-block ecs.service            
+
+Let&rsquo;s create the auto scaling group now
+
+ECSASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: ECSASG
+      AvailabilityZones:
+      # !GetAZs AWS::Region
+      - !FindInMap [ RegionConfigs, UsEast1, Az1 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az2 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az3 ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MaxSize: 2
+      MinSize: 0
+      NewInstancesProtectedFromScaleIn: true
+
+Let&rsquo;s create ECS cluster, EC2 capacity provider and let&rsquo;s attach capacity provider to ECS cluster
+
+TaskECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: MyCluster
+
+  TaskECSClusterEC2CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: EC2Group
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSASG
+        ManagedScaling:
+          Status: ENABLED
+        ManagedDraining: ENABLED
+        ManagedTerminationProtection: ENABLED
+
+  TaskECSCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+      - !Ref TaskECSClusterEC2CapacityProvider
+      - &#34;FARGATE&#34;
+      - &#34;FARGATE_SPOT&#34;
+      Cluster: !Ref TaskECSCluster
+      DefaultCapacityProviderStrategy:
+      - Base: 1
+        CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider
+        Weight: 1
+
+Let&rsquo;s create task 1 which will use our EC2 capacity provider
+
+TaskDefinition1:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 8080
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition1
+      Memory: &#34;512&#34;
+      NetworkMode: bridge
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+Let&rsquo;s now create the task definition 2 which will FARGATE as capacity provider
+
+TaskDefinition2:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+        PortMappings:
+        - ContainerPort: 80
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition2
+      Memory: &#34;512&#34;
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+Let&rsquo;s create services for those tasks
+
+Service1:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service1
+      TaskDefinition: TaskDefinition1
+      CapacityProviderStrategy:
+      - CapacityProvider: EC2Group
+        Base: 1
+        Weight: 1
+    DependsOn:
+      - TaskDefinition1
+
+  Service2:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service2
+      TaskDefinition: TaskDefinition2
+      CapacityProviderStrategy:
+      - CapacityProvider: FARGATE
+        Base: 1
+        Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !GetAtt EC2AndTaskSecurityGroup.GroupId
+          Subnets:
+          - &#34;subnet-02f6cc9a140bac4f2&#34;
+          - &#34;subnet-07d33940df964784d&#34;
+          - &#34;subnet-068bb65beb221f69b&#34;
+    DependsOn:
+      - TaskDefinition2
+
+Now let&rsquo;s create the cloud formation stack with this configuration template
+
+aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM
+Mappings:
+  PolicyConfigs:
+    DocumentVersions:
+      CurrentVersion: &#34;2012-10-17&#34;
+    AWSManagedPolicyArns:
+      AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;
+      TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;
+
+  VpcConfigs:
+    DefaultVpc:
+      Id: &#34;vpc-0549574e741f7f99f&#34;
+
+  RegionConfigs:
+    UsEast1:
+      Az1: &#34;us-east-1a&#34;
+      Az2: &#34;us-east-1b&#34;
+      Az3: &#34;us-east-1c&#34;
+
+Resources:
+  ECSAgentAndTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSAgentAndTaskRole
+      AssumeRolePolicyDocument:
+        Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - &#34;ec2.amazonaws.com&#34;
+            - &#34;ecs-tasks.amazonaws.com&#34;
+      ManagedPolicyArns:
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: ECSEC2IamInstanceProfile
+      Roles:
+      - !Ref ECSAgentAndTaskRole
+
+  EC2AndTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: &#34;Security group for tasks and EC2 host&#34;
+      VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ]
+
+  EC2AndTaskSecurityGroupIngressWeb1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressWeb2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+
+  EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSAgentLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        ImageId: &#34;ami-0453ec754f44f9a4a&#34;
+        InstanceType: &#34;t2.micro&#34;
+        KeyName: RegularSshPemKey
+        SecurityGroupIds:
+        - !GetAtt EC2AndTaskSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            # install docker
+            yum update -y
+            yum install -y docker
+            usermod -a -G docker ec2-user
+            systemctl enable --now --no-block docker.service
+
+            # install ecs agent
+            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+            systemctl enable --now --no-block ecs.service            
+
+  ECSASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: ECSASG
+      AvailabilityZones:
+      # !GetAZs AWS::Region
+      - !FindInMap [ RegionConfigs, UsEast1, Az1 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az2 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az3 ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MaxSize: 2
+      MinSize: 0
+      NewInstancesProtectedFromScaleIn: true
+
+  TaskECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: MyCluster
+
+  TaskECSClusterEC2CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: EC2Group
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSASG
+        ManagedScaling:
+          Status: ENABLED
+        ManagedDraining: ENABLED
+        ManagedTerminationProtection: ENABLED
+
+  TaskECSCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+      - !Ref TaskECSClusterEC2CapacityProvider
+      - &#34;FARGATE&#34;
+      - &#34;FARGATE_SPOT&#34;
+      Cluster: !Ref TaskECSCluster
+      DefaultCapacityProviderStrategy:
+      - Base: 1
+        CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider
+        Weight: 1
+
+  TaskDefinition1:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 8080
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition1
+      Memory: &#34;512&#34;
+      NetworkMode: bridge
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+  TaskDefinition2:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+        PortMappings:
+        - ContainerPort: 80
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition2
+      Memory: &#34;512&#34;
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+  Service1:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service1
+      TaskDefinition: TaskDefinition1
+      CapacityProviderStrategy:
+      - CapacityProvider: EC2Group
+        Base: 1
+        Weight: 1
+    DependsOn:
+      - TaskDefinition1
+
+  Service2:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service2
+      TaskDefinition: TaskDefinition2
+      CapacityProviderStrategy:
+      - CapacityProvider: FARGATE
+        Base: 1
+        Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !GetAtt EC2AndTaskSecurityGroup.GroupId
+          Subnets:
+          - &#34;subnet-02f6cc9a140bac4f2&#34;
+          - &#34;subnet-07d33940df964784d&#34;
+          - &#34;subnet-068bb65beb221f69b&#34;
+    DependsOn:
+      - TaskDefinition2
+">
+<meta name="author" content="">
+<link rel="canonical" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/">
+<link crossorigin="anonymous" href="/akashblog/assets/css/stylesheet.d6fcd20a4fb86efa4dfac8ec95da60244cc8871042183da1ef28e3a762ad79c8.css" integrity="sha256-1vzSCk&#43;4bvpN&#43;sjsldpgJEzIhxBCGD2h7yjjp2Ktecg=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://akash-kola-test.github.io/akashblog/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://akash-kola-test.github.io/akashblog/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://akash-kola-test.github.io/akashblog/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://akash-kola-test.github.io/akashblog/apple-touch-icon.png">
+<link rel="mask-icon" href="https://akash-kola-test.github.io/akashblog/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:url" content="https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/">
+  <meta property="og:site_name" content="Akash´s corner">
+  <meta property="og:title" content="AWS ECS - Assignment 1">
+  <meta property="og:description" content=" Let’s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I’m using mappings Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: &#34;2012-10-17&#34; AWSManagedPolicyArns: AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34; TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34; ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - &#34;ec2.amazonaws.com&#34; - &#34;ecs-tasks.amazonaws.com&#34; ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] Now let’s create the IAM instance profile to attach the above role to our EC2 instances EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref EC2IamRole Configure security group and ingress traffic for our EC2 Host and tasks EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: &#34;Security group for tasks and EC2 host&#34; VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp Let’s create launch template for our Auto scaling group EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: &#34;ami-0453ec754f44f9a4a&#34; InstanceType: &#34;t2.micro&#34; KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service Let’s create the auto scaling group now ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true Let’s create ECS cluster, EC2 capacity provider and let’s attach capacity provider to ECS cluster TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - &#34;FARGATE&#34; - &#34;FARGATE_SPOT&#34; Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 Let’s create task 1 which will use our EC2 capacity provider TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34; PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: &#34;true&#34; awslogs-stream-prefix: efs-task-service-1 Cpu: &#34;256&#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: &#34;512&#34; NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let’s now create the task definition 2 which will FARGATE as capacity provider TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34; LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: &#34;true&#34; awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: &#34;256&#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: &#34;512&#34; NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let’s create services for those tasks Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - &#34;subnet-02f6cc9a140bac4f2&#34; - &#34;subnet-07d33940df964784d&#34; - &#34;subnet-068bb65beb221f69b&#34; DependsOn: - TaskDefinition2 Now let’s create the cloud formation stack with this configuration template aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: &#34;2012-10-17&#34; AWSManagedPolicyArns: AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34; TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34; VpcConfigs: DefaultVpc: Id: &#34;vpc-0549574e741f7f99f&#34; RegionConfigs: UsEast1: Az1: &#34;us-east-1a&#34; Az2: &#34;us-east-1b&#34; Az3: &#34;us-east-1c&#34; Resources: ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - &#34;ec2.amazonaws.com&#34; - &#34;ecs-tasks.amazonaws.com&#34; ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref ECSAgentAndTaskRole EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: &#34;Security group for tasks and EC2 host&#34; VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: &#34;0.0.0.0/0&#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: &#34;ami-0453ec754f44f9a4a&#34; InstanceType: &#34;t2.micro&#34; KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - &#34;FARGATE&#34; - &#34;FARGATE_SPOT&#34; Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34; PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: &#34;true&#34; awslogs-stream-prefix: efs-task-service-1 Cpu: &#34;256&#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: &#34;512&#34; NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34; LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: &#34;true&#34; awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: &#34;256&#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: &#34;512&#34; NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - &#34;subnet-02f6cc9a140bac4f2&#34; - &#34;subnet-07d33940df964784d&#34; - &#34;subnet-068bb65beb221f69b&#34; DependsOn: - TaskDefinition2 ">
+  <meta property="og:locale" content="en-us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2024-12-09T00:00:00+00:00">
+    <meta property="article:modified_time" content="2024-12-09T00:00:00+00:00">
+    <meta property="article:tag" content="Aws-Training-Tasks">
+    <meta property="article:tag" content="Ecs">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AWS ECS - Assignment 1">
+<meta name="twitter:description" content="
+Let&rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I&rsquo;m using mappings
+
+Mappings:
+  PolicyConfigs:
+    DocumentVersions:
+      CurrentVersion: &#34;2012-10-17&#34;
+    AWSManagedPolicyArns:
+      AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;
+      TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;
+ECSAgentAndTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSAgentAndTaskRole
+      AssumeRolePolicyDocument:
+        Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - &#34;ec2.amazonaws.com&#34;
+            - &#34;ecs-tasks.amazonaws.com&#34;
+      ManagedPolicyArns:
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]
+
+Now let&rsquo;s create the IAM instance profile to attach the above role to our EC2 instances
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+        InstanceProfileName: ECSEC2IamInstanceProfile
+        Roles:
+          - !Ref EC2IamRole 
+
+Configure security group and ingress traffic for our EC2 Host and tasks
+
+EC2AndTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: &#34;Security group for tasks and EC2 host&#34;
+      VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ]
+
+  EC2AndTaskSecurityGroupIngressWeb1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressWeb2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+
+Let&rsquo;s create launch template for our Auto scaling group
+
+EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSAgentLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        ImageId: &#34;ami-0453ec754f44f9a4a&#34;
+        InstanceType: &#34;t2.micro&#34;
+        KeyName: RegularSshPemKey
+        SecurityGroupIds:
+        - !GetAtt EC2AndTaskSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            # install docker
+            yum update -y
+            yum install -y docker
+            usermod -a -G docker ec2-user
+            systemctl enable --now --no-block docker.service
+
+            # install ecs agent
+            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+            systemctl enable --now --no-block ecs.service            
+
+Let&rsquo;s create the auto scaling group now
+
+ECSASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: ECSASG
+      AvailabilityZones:
+      # !GetAZs AWS::Region
+      - !FindInMap [ RegionConfigs, UsEast1, Az1 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az2 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az3 ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MaxSize: 2
+      MinSize: 0
+      NewInstancesProtectedFromScaleIn: true
+
+Let&rsquo;s create ECS cluster, EC2 capacity provider and let&rsquo;s attach capacity provider to ECS cluster
+
+TaskECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: MyCluster
+
+  TaskECSClusterEC2CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: EC2Group
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSASG
+        ManagedScaling:
+          Status: ENABLED
+        ManagedDraining: ENABLED
+        ManagedTerminationProtection: ENABLED
+
+  TaskECSCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+      - !Ref TaskECSClusterEC2CapacityProvider
+      - &#34;FARGATE&#34;
+      - &#34;FARGATE_SPOT&#34;
+      Cluster: !Ref TaskECSCluster
+      DefaultCapacityProviderStrategy:
+      - Base: 1
+        CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider
+        Weight: 1
+
+Let&rsquo;s create task 1 which will use our EC2 capacity provider
+
+TaskDefinition1:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 8080
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition1
+      Memory: &#34;512&#34;
+      NetworkMode: bridge
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+Let&rsquo;s now create the task definition 2 which will FARGATE as capacity provider
+
+TaskDefinition2:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+        PortMappings:
+        - ContainerPort: 80
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition2
+      Memory: &#34;512&#34;
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+Let&rsquo;s create services for those tasks
+
+Service1:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service1
+      TaskDefinition: TaskDefinition1
+      CapacityProviderStrategy:
+      - CapacityProvider: EC2Group
+        Base: 1
+        Weight: 1
+    DependsOn:
+      - TaskDefinition1
+
+  Service2:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service2
+      TaskDefinition: TaskDefinition2
+      CapacityProviderStrategy:
+      - CapacityProvider: FARGATE
+        Base: 1
+        Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !GetAtt EC2AndTaskSecurityGroup.GroupId
+          Subnets:
+          - &#34;subnet-02f6cc9a140bac4f2&#34;
+          - &#34;subnet-07d33940df964784d&#34;
+          - &#34;subnet-068bb65beb221f69b&#34;
+    DependsOn:
+      - TaskDefinition2
+
+Now let&rsquo;s create the cloud formation stack with this configuration template
+
+aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM
+Mappings:
+  PolicyConfigs:
+    DocumentVersions:
+      CurrentVersion: &#34;2012-10-17&#34;
+    AWSManagedPolicyArns:
+      AmazonECSFullAccessPolicy: &#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;
+      TaskExecutionRolePolicy: &#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;
+
+  VpcConfigs:
+    DefaultVpc:
+      Id: &#34;vpc-0549574e741f7f99f&#34;
+
+  RegionConfigs:
+    UsEast1:
+      Az1: &#34;us-east-1a&#34;
+      Az2: &#34;us-east-1b&#34;
+      Az3: &#34;us-east-1c&#34;
+
+Resources:
+  ECSAgentAndTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ECSAgentAndTaskRole
+      AssumeRolePolicyDocument:
+        Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service:
+            - &#34;ec2.amazonaws.com&#34;
+            - &#34;ecs-tasks.amazonaws.com&#34;
+      ManagedPolicyArns:
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]
+      - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: ECSEC2IamInstanceProfile
+      Roles:
+      - !Ref ECSAgentAndTaskRole
+
+  EC2AndTaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: &#34;Security group for tasks and EC2 host&#34;
+      VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ]
+
+  EC2AndTaskSecurityGroupIngressWeb1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 8080
+      ToPort: 8080
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressWeb2:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 80
+      ToPort: 80
+      IpProtocol: tcp
+
+  EC2AndTaskSecurityGroupIngressSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: &#34;0.0.0.0/0&#34;
+      GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId
+      FromPort: 22
+      ToPort: 22
+      IpProtocol: tcp
+
+  EC2LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ECSAgentLaunchTemplate
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !GetAtt EC2InstanceProfile.Arn
+        ImageId: &#34;ami-0453ec754f44f9a4a&#34;
+        InstanceType: &#34;t2.micro&#34;
+        KeyName: RegularSshPemKey
+        SecurityGroupIds:
+        - !GetAtt EC2AndTaskSecurityGroup.GroupId
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            # install docker
+            yum update -y
+            yum install -y docker
+            usermod -a -G docker ec2-user
+            systemctl enable --now --no-block docker.service
+
+            # install ecs agent
+            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+            systemctl enable --now --no-block ecs.service            
+
+  ECSASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: ECSASG
+      AvailabilityZones:
+      # !GetAZs AWS::Region
+      - !FindInMap [ RegionConfigs, UsEast1, Az1 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az2 ]
+      - !FindInMap [ RegionConfigs, UsEast1, Az3 ]
+      LaunchTemplate:
+        LaunchTemplateId: !Ref EC2LaunchTemplate
+        Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber
+      MaxSize: 2
+      MinSize: 0
+      NewInstancesProtectedFromScaleIn: true
+
+  TaskECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: MyCluster
+
+  TaskECSClusterEC2CapacityProvider:
+    Type: AWS::ECS::CapacityProvider
+    Properties:
+      Name: EC2Group
+      AutoScalingGroupProvider:
+        AutoScalingGroupArn: !Ref ECSASG
+        ManagedScaling:
+          Status: ENABLED
+        ManagedDraining: ENABLED
+        ManagedTerminationProtection: ENABLED
+
+  TaskECSCapacityProviderAssociation:
+    Type: AWS::ECS::ClusterCapacityProviderAssociations
+    Properties:
+      CapacityProviders:
+      - !Ref TaskECSClusterEC2CapacityProvider
+      - &#34;FARGATE&#34;
+      - &#34;FARGATE_SPOT&#34;
+      Cluster: !Ref TaskECSCluster
+      DefaultCapacityProviderStrategy:
+      - Base: 1
+        CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider
+        Weight: 1
+
+  TaskDefinition1:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 8080
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition1
+      Memory: &#34;512&#34;
+      NetworkMode: bridge
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+  TaskDefinition2:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: Container1
+        Image: &#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            mode: non-blocking
+            max-buffer-size: 25m
+            awslogs-group: LogGroup
+            awslogs-region: us-east-1
+            awslogs-create-group: &#34;true&#34;
+            awslogs-stream-prefix: efs-task-service-1
+        PortMappings:
+        - ContainerPort: 80
+      Cpu: &#34;256&#34;
+      ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+      Family: TaskDefinition2
+      Memory: &#34;512&#34;
+      NetworkMode: awsvpc
+      TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn
+
+  Service1:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service1
+      TaskDefinition: TaskDefinition1
+      CapacityProviderStrategy:
+      - CapacityProvider: EC2Group
+        Base: 1
+        Weight: 1
+    DependsOn:
+      - TaskDefinition1
+
+  Service2:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !GetAtt TaskECSCluster.Arn
+      DesiredCount: 1
+      ServiceName: Service2
+      TaskDefinition: TaskDefinition2
+      CapacityProviderStrategy:
+      - CapacityProvider: FARGATE
+        Base: 1
+        Weight: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+          - !GetAtt EC2AndTaskSecurityGroup.GroupId
+          Subnets:
+          - &#34;subnet-02f6cc9a140bac4f2&#34;
+          - &#34;subnet-07d33940df964784d&#34;
+          - &#34;subnet-068bb65beb221f69b&#34;
+    DependsOn:
+      - TaskDefinition2
+">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "AWS ECS - Assignment 1",
+      "item": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AWS ECS - Assignment 1",
+  "name": "AWS ECS - Assignment 1",
+  "description": " Let\u0026rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I\u0026rsquo;m using mappings Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: \u0026#34;2012-10-17\u0026#34; AWSManagedPolicyArns: AmazonECSFullAccessPolicy: \u0026#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess\u0026#34; TaskExecutionRolePolicy: \u0026#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy\u0026#34; ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - \u0026#34;ec2.amazonaws.com\u0026#34; - \u0026#34;ecs-tasks.amazonaws.com\u0026#34; ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] Now let\u0026rsquo;s create the IAM instance profile to attach the above role to our EC2 instances EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref EC2IamRole Configure security group and ingress traffic for our EC2 Host and tasks EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: \u0026#34;Security group for tasks and EC2 host\u0026#34; VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp Let\u0026rsquo;s create launch template for our Auto scaling group EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: \u0026#34;ami-0453ec754f44f9a4a\u0026#34; InstanceType: \u0026#34;t2.micro\u0026#34; KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo \u0026#34;ECS_CLUSTER=MyCluster\u0026#34; \u0026gt;\u0026gt; /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service Let\u0026rsquo;s create the auto scaling group now ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true Let\u0026rsquo;s create ECS cluster, EC2 capacity provider and let\u0026rsquo;s attach capacity provider to ECS cluster TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - \u0026#34;FARGATE\u0026#34; - \u0026#34;FARGATE_SPOT\u0026#34; Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 Let\u0026rsquo;s create task 1 which will use our EC2 capacity provider TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \u0026#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest\u0026#34; PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \u0026#34;true\u0026#34; awslogs-stream-prefix: efs-task-service-1 Cpu: \u0026#34;256\u0026#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: \u0026#34;512\u0026#34; NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let\u0026rsquo;s now create the task definition 2 which will FARGATE as capacity provider TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \u0026#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest\u0026#34; LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \u0026#34;true\u0026#34; awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: \u0026#34;256\u0026#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: \u0026#34;512\u0026#34; NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let\u0026rsquo;s create services for those tasks Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - \u0026#34;subnet-02f6cc9a140bac4f2\u0026#34; - \u0026#34;subnet-07d33940df964784d\u0026#34; - \u0026#34;subnet-068bb65beb221f69b\u0026#34; DependsOn: - TaskDefinition2 Now let\u0026rsquo;s create the cloud formation stack with this configuration template aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: \u0026#34;2012-10-17\u0026#34; AWSManagedPolicyArns: AmazonECSFullAccessPolicy: \u0026#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess\u0026#34; TaskExecutionRolePolicy: \u0026#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy\u0026#34; VpcConfigs: DefaultVpc: Id: \u0026#34;vpc-0549574e741f7f99f\u0026#34; RegionConfigs: UsEast1: Az1: \u0026#34;us-east-1a\u0026#34; Az2: \u0026#34;us-east-1b\u0026#34; Az3: \u0026#34;us-east-1c\u0026#34; Resources: ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - \u0026#34;ec2.amazonaws.com\u0026#34; - \u0026#34;ecs-tasks.amazonaws.com\u0026#34; ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref ECSAgentAndTaskRole EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: \u0026#34;Security group for tasks and EC2 host\u0026#34; VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \u0026#34;0.0.0.0/0\u0026#34; GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: \u0026#34;ami-0453ec754f44f9a4a\u0026#34; InstanceType: \u0026#34;t2.micro\u0026#34; KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo \u0026#34;ECS_CLUSTER=MyCluster\u0026#34; \u0026gt;\u0026gt; /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - \u0026#34;FARGATE\u0026#34; - \u0026#34;FARGATE_SPOT\u0026#34; Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \u0026#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest\u0026#34; PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \u0026#34;true\u0026#34; awslogs-stream-prefix: efs-task-service-1 Cpu: \u0026#34;256\u0026#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: \u0026#34;512\u0026#34; NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \u0026#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest\u0026#34; LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \u0026#34;true\u0026#34; awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: \u0026#34;256\u0026#34; ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: \u0026#34;512\u0026#34; NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - \u0026#34;subnet-02f6cc9a140bac4f2\u0026#34; - \u0026#34;subnet-07d33940df964784d\u0026#34; - \u0026#34;subnet-068bb65beb221f69b\u0026#34; DependsOn: - TaskDefinition2 ",
+  "keywords": [
+    "aws-training-tasks", "ecs"
+  ],
+  "articleBody": " Let’s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I’m using mappings Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: \"2012-10-17\" AWSManagedPolicyArns: AmazonECSFullAccessPolicy: \"arn:aws:iam::aws:policy/AmazonECS_FullAccess\" TaskExecutionRolePolicy: \"arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy\" ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - \"ec2.amazonaws.com\" - \"ecs-tasks.amazonaws.com\" ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] Now let’s create the IAM instance profile to attach the above role to our EC2 instances EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref EC2IamRole Configure security group and ingress traffic for our EC2 Host and tasks EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: \"Security group for tasks and EC2 host\" VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp Let’s create launch template for our Auto scaling group EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: \"ami-0453ec754f44f9a4a\" InstanceType: \"t2.micro\" KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo \"ECS_CLUSTER=MyCluster\" \u003e\u003e /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service Let’s create the auto scaling group now ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true Let’s create ECS cluster, EC2 capacity provider and let’s attach capacity provider to ECS cluster TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - \"FARGATE\" - \"FARGATE_SPOT\" Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 Let’s create task 1 which will use our EC2 capacity provider TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \"180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest\" PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \"true\" awslogs-stream-prefix: efs-task-service-1 Cpu: \"256\" ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: \"512\" NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let’s now create the task definition 2 which will FARGATE as capacity provider TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \"180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest\" LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \"true\" awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: \"256\" ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: \"512\" NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Let’s create services for those tasks Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - \"subnet-02f6cc9a140bac4f2\" - \"subnet-07d33940df964784d\" - \"subnet-068bb65beb221f69b\" DependsOn: - TaskDefinition2 Now let’s create the cloud formation stack with this configuration template aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM Mappings: PolicyConfigs: DocumentVersions: CurrentVersion: \"2012-10-17\" AWSManagedPolicyArns: AmazonECSFullAccessPolicy: \"arn:aws:iam::aws:policy/AmazonECS_FullAccess\" TaskExecutionRolePolicy: \"arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy\" VpcConfigs: DefaultVpc: Id: \"vpc-0549574e741f7f99f\" RegionConfigs: UsEast1: Az1: \"us-east-1a\" Az2: \"us-east-1b\" Az3: \"us-east-1c\" Resources: ECSAgentAndTaskRole: Type: AWS::IAM::Role Properties: RoleName: ECSAgentAndTaskRole AssumeRolePolicyDocument: Version: !FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ] Statement: - Effect: Allow Action: sts:AssumeRole Principal: Service: - \"ec2.amazonaws.com\" - \"ecs-tasks.amazonaws.com\" ManagedPolicyArns: - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ] - !FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ] EC2InstanceProfile: Type: AWS::IAM::InstanceProfile Properties: InstanceProfileName: ECSEC2IamInstanceProfile Roles: - !Ref ECSAgentAndTaskRole EC2AndTaskSecurityGroup: Type: AWS::EC2::SecurityGroup Properties: GroupDescription: \"Security group for tasks and EC2 host\" VpcId: !FindInMap [ VpcConfigs, DefaultVpc, Id ] EC2AndTaskSecurityGroupIngressWeb1: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 8080 ToPort: 8080 IpProtocol: tcp EC2AndTaskSecurityGroupIngressWeb2: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 80 ToPort: 80 IpProtocol: tcp EC2AndTaskSecurityGroupIngressSSH: Type: AWS::EC2::SecurityGroupIngress Properties: CidrIp: \"0.0.0.0/0\" GroupId: !GetAtt EC2AndTaskSecurityGroup.GroupId FromPort: 22 ToPort: 22 IpProtocol: tcp EC2LaunchTemplate: Type: AWS::EC2::LaunchTemplate Properties: LaunchTemplateName: ECSAgentLaunchTemplate LaunchTemplateData: IamInstanceProfile: Arn: !GetAtt EC2InstanceProfile.Arn ImageId: \"ami-0453ec754f44f9a4a\" InstanceType: \"t2.micro\" KeyName: RegularSshPemKey SecurityGroupIds: - !GetAtt EC2AndTaskSecurityGroup.GroupId UserData: Fn::Base64: | #!/bin/bash # install docker yum update -y yum install -y docker usermod -a -G docker ec2-user systemctl enable --now --no-block docker.service # install ecs agent curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm yum localinstall -y amazon-ecs-init-latest.x86_64.rpm echo \"ECS_CLUSTER=MyCluster\" \u003e\u003e /etc/ecs/ecs.config systemctl enable --now --no-block ecs.service ECSASG: Type: AWS::AutoScaling::AutoScalingGroup Properties: AutoScalingGroupName: ECSASG AvailabilityZones: # !GetAZs AWS::Region - !FindInMap [ RegionConfigs, UsEast1, Az1 ] - !FindInMap [ RegionConfigs, UsEast1, Az2 ] - !FindInMap [ RegionConfigs, UsEast1, Az3 ] LaunchTemplate: LaunchTemplateId: !Ref EC2LaunchTemplate Version: !GetAtt EC2LaunchTemplate.LatestVersionNumber MaxSize: 2 MinSize: 0 NewInstancesProtectedFromScaleIn: true TaskECSCluster: Type: AWS::ECS::Cluster Properties: ClusterName: MyCluster TaskECSClusterEC2CapacityProvider: Type: AWS::ECS::CapacityProvider Properties: Name: EC2Group AutoScalingGroupProvider: AutoScalingGroupArn: !Ref ECSASG ManagedScaling: Status: ENABLED ManagedDraining: ENABLED ManagedTerminationProtection: ENABLED TaskECSCapacityProviderAssociation: Type: AWS::ECS::ClusterCapacityProviderAssociations Properties: CapacityProviders: - !Ref TaskECSClusterEC2CapacityProvider - \"FARGATE\" - \"FARGATE_SPOT\" Cluster: !Ref TaskECSCluster DefaultCapacityProviderStrategy: - Base: 1 CapacityProvider: !Ref TaskECSClusterEC2CapacityProvider Weight: 1 TaskDefinition1: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \"180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest\" PortMappings: - ContainerPort: 80 HostPort: 8080 LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \"true\" awslogs-stream-prefix: efs-task-service-1 Cpu: \"256\" ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition1 Memory: \"512\" NetworkMode: bridge TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn TaskDefinition2: Type: AWS::ECS::TaskDefinition Properties: ContainerDefinitions: - Name: Container1 Image: \"180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest\" LogConfiguration: LogDriver: awslogs Options: mode: non-blocking max-buffer-size: 25m awslogs-group: LogGroup awslogs-region: us-east-1 awslogs-create-group: \"true\" awslogs-stream-prefix: efs-task-service-1 PortMappings: - ContainerPort: 80 Cpu: \"256\" ExecutionRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Family: TaskDefinition2 Memory: \"512\" NetworkMode: awsvpc TaskRoleArn: !GetAtt ECSAgentAndTaskRole.Arn Service1: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service1 TaskDefinition: TaskDefinition1 CapacityProviderStrategy: - CapacityProvider: EC2Group Base: 1 Weight: 1 DependsOn: - TaskDefinition1 Service2: Type: AWS::ECS::Service Properties: Cluster: !GetAtt TaskECSCluster.Arn DesiredCount: 1 ServiceName: Service2 TaskDefinition: TaskDefinition2 CapacityProviderStrategy: - CapacityProvider: FARGATE Base: 1 Weight: 1 NetworkConfiguration: AwsvpcConfiguration: AssignPublicIp: ENABLED SecurityGroups: - !GetAtt EC2AndTaskSecurityGroup.GroupId Subnets: - \"subnet-02f6cc9a140bac4f2\" - \"subnet-07d33940df964784d\" - \"subnet-068bb65beb221f69b\" DependsOn: - TaskDefinition2 Let’s wait for it to complete and access our websites from both tasks Let’s open our task 1 website Now let’s open our task 2 website ",
+  "wordCount" : "1038",
+  "inLanguage": "en",
+  "datePublished": "2024-12-09T00:00:00Z",
+  "dateModified": "2024-12-09T00:00:00Z",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://akash-kola-test.github.io/akashblog/posts/internship-learnings/aws-assignment---part-1/aws-ecs---assignment-1/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Akash´s corner",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://akash-kola-test.github.io/akashblog/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.body.classList.add('dark');
+    } else if (localStorage.getItem("pref-theme") === "light") {
+        document.body.classList.remove('dark')
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="https://akash-kola-test.github.io/akashblog/" accesskey="h" title="Akash´s corner (Alt + H)">Akash´s corner</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/posts" title="Blog">
+                    <span>Blog</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/about" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://akash-kola-test.github.io/akashblog/contact" title="Contact">
+                    <span>Contact</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    
+    <h1 class="post-title entry-hint-parent">
+      AWS ECS - Assignment 1
+    </h1>
+    <div class="post-meta"><span title='2024-12-09 00:00:00 +0000 UTC'>December 9, 2024</span>
+
+</div>
+  </header> 
+  <div class="post-content"><ol>
+<li>Let&rsquo;s create the IAM role for our EC2 instances to talk with the cluster, to make template more dynamic I&rsquo;m using mappings</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">Mappings</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">PolicyConfigs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DocumentVersions</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CurrentVersion</span>: <span style="color:#e6db74">&#34;2012-10-17&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AWSManagedPolicyArns</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AmazonECSFullAccessPolicy</span>: <span style="color:#e6db74">&#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskExecutionRolePolicy</span>: <span style="color:#e6db74">&#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">ECSAgentAndTaskRole</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::IAM::Role</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">RoleName</span>: <span style="color:#ae81ff">ECSAgentAndTaskRole</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AssumeRolePolicyDocument</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Version</span>: !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Statement</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">Effect</span>: <span style="color:#ae81ff">Allow</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Action</span>: <span style="color:#ae81ff">sts:AssumeRole</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Principal</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">Service</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#e6db74">&#34;ec2.amazonaws.com&#34;</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#e6db74">&#34;ecs-tasks.amazonaws.com&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ManagedPolicyArns</span>:
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]</span>
+</span></span></code></pre></div><ol start="2">
+<li>Now let&rsquo;s create the IAM instance profile to attach the above role to our EC2 instances</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span>  <span style="color:#f92672">EC2InstanceProfile</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::IAM::InstanceProfile</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">InstanceProfileName</span>: <span style="color:#ae81ff">ECSEC2IamInstanceProfile</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Roles</span>:
+</span></span><span style="display:flex;"><span>          - !<span style="color:#ae81ff">Ref EC2IamRole </span>
+</span></span></code></pre></div><ol start="3">
+<li>Configure security group and ingress traffic for our EC2 Host and tasks</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">EC2AndTaskSecurityGroup</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroup</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupDescription</span>: <span style="color:#e6db74">&#34;Security group for tasks and EC2 host&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">VpcId</span>: !<span style="color:#ae81ff">FindInMap [ VpcConfigs, DefaultVpc, Id ]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressWeb1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressWeb2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressSSH</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">22</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">22</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span></code></pre></div><ol start="4">
+<li>Let&rsquo;s create launch template for our Auto scaling group</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">EC2LaunchTemplate</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::LaunchTemplate</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplateName</span>: <span style="color:#ae81ff">ECSAgentLaunchTemplate</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplateData</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">IamInstanceProfile</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Arn</span>: !<span style="color:#ae81ff">GetAtt EC2InstanceProfile.Arn</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ImageId</span>: <span style="color:#e6db74">&#34;ami-0453ec754f44f9a4a&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">InstanceType</span>: <span style="color:#e6db74">&#34;t2.micro&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">KeyName</span>: <span style="color:#ae81ff">RegularSshPemKey</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">SecurityGroupIds</span>:
+</span></span><span style="display:flex;"><span>        - !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">UserData</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Fn::Base64</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            #!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            # install docker
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum update -y
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum install -y docker
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            usermod -a -G docker ec2-user
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            systemctl enable --now --no-block docker.service
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            # install ecs agent
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            systemctl enable --now --no-block ecs.service</span>            
+</span></span></code></pre></div><ol start="5">
+<li>Let&rsquo;s create the auto scaling group now</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">ECSASG</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::AutoScaling::AutoScalingGroup</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AutoScalingGroupName</span>: <span style="color:#ae81ff">ECSASG</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AvailabilityZones</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># !GetAZs AWS::Region</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az1 ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az2 ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az3 ]</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplate</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LaunchTemplateId</span>: !<span style="color:#ae81ff">Ref EC2LaunchTemplate</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Version</span>: !<span style="color:#ae81ff">GetAtt EC2LaunchTemplate.LatestVersionNumber</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">MaxSize</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">MinSize</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NewInstancesProtectedFromScaleIn</span>: <span style="color:#66d9ef">true</span>
+</span></span></code></pre></div><ol start="6">
+<li>Let&rsquo;s create ECS cluster, EC2 capacity provider and let&rsquo;s attach capacity provider to ECS cluster</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">TaskECSCluster</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Cluster</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ClusterName</span>: <span style="color:#ae81ff">MyCluster</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskECSClusterEC2CapacityProvider</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::CapacityProvider</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">EC2Group</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AutoScalingGroupProvider</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">AutoScalingGroupArn</span>: !<span style="color:#ae81ff">Ref ECSASG</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedScaling</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Status</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedDraining</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedTerminationProtection</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskECSCapacityProviderAssociation</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::ClusterCapacityProviderAssociations</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviders</span>:
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">Ref TaskECSClusterEC2CapacityProvider</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;FARGATE&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;FARGATE_SPOT&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">Ref TaskECSCluster</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DefaultCapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">CapacityProvider</span>: !<span style="color:#ae81ff">Ref TaskECSClusterEC2CapacityProvider</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><ol start="7">
+<li>Let&rsquo;s create task 1 which will use our EC2 capacity provider</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">TaskDefinition1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::TaskDefinition</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ContainerDefinitions</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">Container1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Image</span>: <span style="color:#e6db74">&#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">PortMappings</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">ContainerPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">HostPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LogConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">LogDriver</span>: <span style="color:#ae81ff">awslogs</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Options</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">mode</span>: <span style="color:#ae81ff">non-blocking</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">max-buffer-size</span>: <span style="color:#ae81ff">25m</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-group</span>: <span style="color:#ae81ff">LogGroup</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-region</span>: <span style="color:#ae81ff">us-east-1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-create-group</span>: <span style="color:#e6db74">&#34;true&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-stream-prefix</span>: <span style="color:#ae81ff">efs-task-service-1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cpu</span>: <span style="color:#e6db74">&#34;256&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ExecutionRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Family</span>: <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Memory</span>: <span style="color:#e6db74">&#34;512&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkMode</span>: <span style="color:#ae81ff">bridge</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span></code></pre></div><ol start="8">
+<li>Let&rsquo;s now create the task definition 2 which will FARGATE as capacity provider</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">TaskDefinition2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::TaskDefinition</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ContainerDefinitions</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">Container1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Image</span>: <span style="color:#e6db74">&#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LogConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">LogDriver</span>: <span style="color:#ae81ff">awslogs</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Options</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">mode</span>: <span style="color:#ae81ff">non-blocking</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">max-buffer-size</span>: <span style="color:#ae81ff">25m</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-group</span>: <span style="color:#ae81ff">LogGroup</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-region</span>: <span style="color:#ae81ff">us-east-1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-create-group</span>: <span style="color:#e6db74">&#34;true&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-stream-prefix</span>: <span style="color:#ae81ff">efs-task-service-1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">PortMappings</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">ContainerPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cpu</span>: <span style="color:#e6db74">&#34;256&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ExecutionRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Family</span>: <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Memory</span>: <span style="color:#e6db74">&#34;512&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkMode</span>: <span style="color:#ae81ff">awsvpc</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span></code></pre></div><ol start="9">
+<li>Let&rsquo;s create services for those tasks</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">Service1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Service</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">GetAtt TaskECSCluster.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DesiredCount</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ServiceName</span>: <span style="color:#ae81ff">Service1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskDefinition</span>: <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">CapacityProvider</span>: <span style="color:#ae81ff">EC2Group</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DependsOn</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Service2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Service</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">GetAtt TaskECSCluster.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DesiredCount</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ServiceName</span>: <span style="color:#ae81ff">Service2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskDefinition</span>: <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">CapacityProvider</span>: <span style="color:#ae81ff">FARGATE</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkConfiguration</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">AwsvpcConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">AssignPublicIp</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">SecurityGroups</span>:
+</span></span><span style="display:flex;"><span>          - !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Subnets</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-02f6cc9a140bac4f2&#34;</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-07d33940df964784d&#34;</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-068bb65beb221f69b&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DependsOn</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span></code></pre></div><ol start="10">
+<li>Now let&rsquo;s create the cloud formation stack with this configuration template</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>aws cloudformation create-stack --stack-name ecs --template-body file://ecs-template.cfn.yml --capabilities CAPABILITY_NAMED_IAM
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">Mappings</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">PolicyConfigs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DocumentVersions</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CurrentVersion</span>: <span style="color:#e6db74">&#34;2012-10-17&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AWSManagedPolicyArns</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AmazonECSFullAccessPolicy</span>: <span style="color:#e6db74">&#34;arn:aws:iam::aws:policy/AmazonECS_FullAccess&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskExecutionRolePolicy</span>: <span style="color:#e6db74">&#34;arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">VpcConfigs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DefaultVpc</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Id</span>: <span style="color:#e6db74">&#34;vpc-0549574e741f7f99f&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">RegionConfigs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">UsEast1</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Az1</span>: <span style="color:#e6db74">&#34;us-east-1a&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Az2</span>: <span style="color:#e6db74">&#34;us-east-1b&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Az3</span>: <span style="color:#e6db74">&#34;us-east-1c&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Resources</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ECSAgentAndTaskRole</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::IAM::Role</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">RoleName</span>: <span style="color:#ae81ff">ECSAgentAndTaskRole</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AssumeRolePolicyDocument</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Version</span>: !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, DocumentVersions, CurrentVersion ]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Statement</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">Effect</span>: <span style="color:#ae81ff">Allow</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Action</span>: <span style="color:#ae81ff">sts:AssumeRole</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Principal</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">Service</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#e6db74">&#34;ec2.amazonaws.com&#34;</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#e6db74">&#34;ecs-tasks.amazonaws.com&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ManagedPolicyArns</span>:
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, AWSManagedPolicyArns, AmazonECSFullAccessPolicy ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ PolicyConfigs, AWSManagedPolicyArns, TaskExecutionRolePolicy ]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2InstanceProfile</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::IAM::InstanceProfile</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">InstanceProfileName</span>: <span style="color:#ae81ff">ECSEC2IamInstanceProfile</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Roles</span>:
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">Ref ECSAgentAndTaskRole</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroup</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroup</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupDescription</span>: <span style="color:#e6db74">&#34;Security group for tasks and EC2 host&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">VpcId</span>: !<span style="color:#ae81ff">FindInMap [ VpcConfigs, DefaultVpc, Id ]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressWeb1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressWeb2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2AndTaskSecurityGroupIngressSSH</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::SecurityGroupIngress</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CidrIp</span>: <span style="color:#e6db74">&#34;0.0.0.0/0&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">GroupId</span>: !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">FromPort</span>: <span style="color:#ae81ff">22</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ToPort</span>: <span style="color:#ae81ff">22</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">IpProtocol</span>: <span style="color:#ae81ff">tcp</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">EC2LaunchTemplate</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::EC2::LaunchTemplate</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplateName</span>: <span style="color:#ae81ff">ECSAgentLaunchTemplate</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplateData</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">IamInstanceProfile</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Arn</span>: !<span style="color:#ae81ff">GetAtt EC2InstanceProfile.Arn</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ImageId</span>: <span style="color:#e6db74">&#34;ami-0453ec754f44f9a4a&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">InstanceType</span>: <span style="color:#e6db74">&#34;t2.micro&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">KeyName</span>: <span style="color:#ae81ff">RegularSshPemKey</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">SecurityGroupIds</span>:
+</span></span><span style="display:flex;"><span>        - !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">UserData</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Fn::Base64</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            #!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            # install docker
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum update -y
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum install -y docker
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            usermod -a -G docker ec2-user
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            systemctl enable --now --no-block docker.service
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            # install ecs agent
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            curl -O https://s3.us-east-1.amazonaws.com/amazon-ecs-agent-us-east-1/amazon-ecs-init-latest.x86_64.rpm
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            yum localinstall -y amazon-ecs-init-latest.x86_64.rpm
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            echo &#34;ECS_CLUSTER=MyCluster&#34; &gt;&gt; /etc/ecs/ecs.config
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            systemctl enable --now --no-block ecs.service</span>            
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ECSASG</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::AutoScaling::AutoScalingGroup</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AutoScalingGroupName</span>: <span style="color:#ae81ff">ECSASG</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AvailabilityZones</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e"># !GetAZs AWS::Region</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az1 ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az2 ]</span>
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">FindInMap [ RegionConfigs, UsEast1, Az3 ]</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">LaunchTemplate</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LaunchTemplateId</span>: !<span style="color:#ae81ff">Ref EC2LaunchTemplate</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Version</span>: !<span style="color:#ae81ff">GetAtt EC2LaunchTemplate.LatestVersionNumber</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">MaxSize</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">MinSize</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NewInstancesProtectedFromScaleIn</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskECSCluster</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Cluster</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ClusterName</span>: <span style="color:#ae81ff">MyCluster</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskECSClusterEC2CapacityProvider</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::CapacityProvider</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">EC2Group</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">AutoScalingGroupProvider</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">AutoScalingGroupArn</span>: !<span style="color:#ae81ff">Ref ECSASG</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedScaling</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Status</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedDraining</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">ManagedTerminationProtection</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskECSCapacityProviderAssociation</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::ClusterCapacityProviderAssociations</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviders</span>:
+</span></span><span style="display:flex;"><span>      - !<span style="color:#ae81ff">Ref TaskECSClusterEC2CapacityProvider</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;FARGATE&#34;</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#e6db74">&#34;FARGATE_SPOT&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">Ref TaskECSCluster</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DefaultCapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">CapacityProvider</span>: !<span style="color:#ae81ff">Ref TaskECSClusterEC2CapacityProvider</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskDefinition1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::TaskDefinition</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ContainerDefinitions</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">Container1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Image</span>: <span style="color:#e6db74">&#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task1-image:latest&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">PortMappings</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">ContainerPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">HostPort</span>: <span style="color:#ae81ff">8080</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LogConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">LogDriver</span>: <span style="color:#ae81ff">awslogs</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Options</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">mode</span>: <span style="color:#ae81ff">non-blocking</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">max-buffer-size</span>: <span style="color:#ae81ff">25m</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-group</span>: <span style="color:#ae81ff">LogGroup</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-region</span>: <span style="color:#ae81ff">us-east-1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-create-group</span>: <span style="color:#e6db74">&#34;true&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-stream-prefix</span>: <span style="color:#ae81ff">efs-task-service-1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cpu</span>: <span style="color:#e6db74">&#34;256&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ExecutionRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Family</span>: <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Memory</span>: <span style="color:#e6db74">&#34;512&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkMode</span>: <span style="color:#ae81ff">bridge</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TaskDefinition2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::TaskDefinition</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ContainerDefinitions</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Name</span>: <span style="color:#ae81ff">Container1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Image</span>: <span style="color:#e6db74">&#34;180294179946.dkr.ecr.us-east-1.amazonaws.com/akash/task2-image:latest&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">LogConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">LogDriver</span>: <span style="color:#ae81ff">awslogs</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Options</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">mode</span>: <span style="color:#ae81ff">non-blocking</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">max-buffer-size</span>: <span style="color:#ae81ff">25m</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-group</span>: <span style="color:#ae81ff">LogGroup</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-region</span>: <span style="color:#ae81ff">us-east-1</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-create-group</span>: <span style="color:#e6db74">&#34;true&#34;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">awslogs-stream-prefix</span>: <span style="color:#ae81ff">efs-task-service-1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">PortMappings</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">ContainerPort</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cpu</span>: <span style="color:#e6db74">&#34;256&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ExecutionRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Family</span>: <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Memory</span>: <span style="color:#e6db74">&#34;512&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkMode</span>: <span style="color:#ae81ff">awsvpc</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskRoleArn</span>: !<span style="color:#ae81ff">GetAtt ECSAgentAndTaskRole.Arn</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Service1</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Service</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">GetAtt TaskECSCluster.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DesiredCount</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ServiceName</span>: <span style="color:#ae81ff">Service1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskDefinition</span>: <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">CapacityProvider</span>: <span style="color:#ae81ff">EC2Group</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DependsOn</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">TaskDefinition1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Service2</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Type</span>: <span style="color:#ae81ff">AWS::ECS::Service</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Properties</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Cluster</span>: !<span style="color:#ae81ff">GetAtt TaskECSCluster.Arn</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">DesiredCount</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">ServiceName</span>: <span style="color:#ae81ff">Service2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">TaskDefinition</span>: <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">CapacityProviderStrategy</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">CapacityProvider</span>: <span style="color:#ae81ff">FARGATE</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Base</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">Weight</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NetworkConfiguration</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">AwsvpcConfiguration</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">AssignPublicIp</span>: <span style="color:#ae81ff">ENABLED</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">SecurityGroups</span>:
+</span></span><span style="display:flex;"><span>          - !<span style="color:#ae81ff">GetAtt EC2AndTaskSecurityGroup.GroupId</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">Subnets</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-02f6cc9a140bac4f2&#34;</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-07d33940df964784d&#34;</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#34;subnet-068bb65beb221f69b&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DependsOn</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">TaskDefinition2</span>
+</span></span></code></pre></div><p><img alt="ECS cloud formation stack creation" loading="lazy" src="/akashblog/images/ECS%20cloud%20formation%20stack%20creation.png"></p>
+<p><img alt="ECS CF stack creation in progress" loading="lazy" src="/akashblog/images/ECS%20CF%20stack%20creation%20in%20progress.png"></p>
+<ol start="11">
+<li>Let&rsquo;s wait for it to complete and access our websites from both tasks</li>
+</ol>
+<p><img alt="ECS cluster creation successfull" loading="lazy" src="/akashblog/images/ECS%20cluster%20creation%20successfull.png"></p>
+<ol start="12">
+<li>Let&rsquo;s open our task 1 website</li>
+</ol>
+<p><img alt="Task 1 Public IP" loading="lazy" src="/akashblog/images/Task%201%20Public%20IP.png"></p>
+<p><img alt="Task 1 website" loading="lazy" src="/akashblog/images/Task%201%20website.png"></p>
+<ol start="13">
+<li>Now let&rsquo;s open our task 2 website</li>
+</ol>
+<p><img alt="Task 2 IP address" loading="lazy" src="/akashblog/images/Task%202%20IP%20address.png"></p>
+<p><img alt="Task 2 Website" loading="lazy" src="/akashblog/images/Task%202%20Website.png"></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/aws-training-tasks/">Aws-Training-Tasks</a></li>
+      <li><a href="https://akash-kola-test.github.io/akashblog/tags/ecs/">Ecs</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2025 <a href="https://akash-kola-test.github.io/akashblog/">Akash´s corner</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu')
+    if (menu) {
+        menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        if (document.body.className.includes("dark")) {
+            document.body.classList.remove('dark');
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            document.body.classList.add('dark');
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>
