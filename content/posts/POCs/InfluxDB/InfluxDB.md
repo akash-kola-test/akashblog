@@ -87,5 +87,5 @@ These are main capabilities that needed to be supported by Time series based dat
 
 
 ## References
-- [Practical Basic Examples]({{< ref "Practical Basic Examples.md" >}})
-- High level internal details about [Storage Engine]({{< ref "Storage Engine.md" >}})
+- [InfluxDB Practical Basic Examples]({{< ref "InfluxDB Practical Basic Examples.md" >}})
+- High level internal details about [InfluxDB Storage Engine]({{< ref "InfluxDB Storage Engine.md" >}})

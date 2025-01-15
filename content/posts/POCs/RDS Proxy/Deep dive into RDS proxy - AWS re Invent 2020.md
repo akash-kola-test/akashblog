@@ -7,7 +7,6 @@ tags:
     - rds
     - rds-proxy
 ---
-
 ## Introduction
 
 Here are the today's application needs in terms of RDS (or) database
@@ -72,7 +71,7 @@ Amazon RDS Proxy is the AWS service to help us in this solution.
 - This scales to support hundreds of thousands of connections and this depends on size of the database.
 
 > [!important]
-> Based on instance size we can configure the max connections I guess
+>  I guess, based on instance size we can configure the max connections
 
 ![Deep dive into RDS proxy - AWS re Invent 2020 - Connection pooling](images/Deep%20dive%20into%20RDS%20proxy%20-%20AWS%20re%20Invent%202020%20-%20Connection%20pooling.png)
 

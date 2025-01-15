@@ -1,5 +1,5 @@
 ---
-title: Practical Basic Example
+title: InfluxDB Practical Basic Examples
 date: 2024-11-29
 draft: 
 tags:

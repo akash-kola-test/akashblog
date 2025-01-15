@@ -1,5 +1,5 @@
 ---
-title: Storage Engine
+title: InfluxDB Storage Engine
 date: 2024-11-29
 draft: false
 tags:
