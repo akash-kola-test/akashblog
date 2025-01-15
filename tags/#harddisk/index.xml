@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>#Harddisk on Akash´s corner</title>
+    <link>https://akash-kola-test.github.io/akashblog/tags/%23harddisk/</link>
+    <description>Recent content in #Harddisk on Akash´s corner</description>
+    <generator>Hugo -- 0.139.3</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 15 Jan 2025 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://akash-kola-test.github.io/akashblog/tags/%23harddisk/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Hard disk partitions</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/</link>
+      <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/</guid>
+      <description>&lt;p&gt;Every hard disk is just a device in Linux. If we want to use the partition we need to create partitions in it.&lt;/p&gt;
+&lt;h2 id=&#34;sectors&#34;&gt;Sectors&lt;/h2&gt;
+&lt;p&gt;Hard disk can&amp;rsquo;t understand GBs, MBs, etc.. it can only understand the storage in terms of &lt;strong&gt;sectors&lt;/strong&gt;. A &lt;strong&gt;sector is 512 bytes&lt;/strong&gt;, so typically 100 GiB hard disk means 107,374,182,400 bytes and 209,715,200 sectors.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;[!info]
+We can use &lt;strong&gt;fdisk&lt;/strong&gt; command to get information or perform some operations on disks.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

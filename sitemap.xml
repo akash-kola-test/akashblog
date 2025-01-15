@@ -2,8 +2,32 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/%23harddisk/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/%23linux/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/%23nas/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/%23nfs/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/</loc>
-    <lastmod>2025-01-07T00:00:00+00:00</lastmod>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/learnings/network-attached-storage-nas/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://akash-kola-test.github.io/akashblog/tags/</loc>
+    <lastmod>2025-01-15T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/aws/</loc>
     <lastmod>2025-01-07T00:00:00+00:00</lastmod>
@@ -11,16 +35,10 @@
     <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/deep-dive-into-rds-proxy---aws-re-invent-2020/</loc>
     <lastmod>2025-01-07T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/posts/</loc>
-    <lastmod>2025-01-07T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/rds/</loc>
     <lastmod>2025-01-07T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/rds-proxy/</loc>
-    <lastmod>2025-01-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/tags/</loc>
     <lastmod>2025-01-07T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/tags/%23cdk/</loc>
@@ -53,13 +71,11 @@
     <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb/</loc>
     <lastmod>2024-11-29T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/</loc>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/</loc>
     <lastmod>2024-11-29T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</loc>
+    <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/</loc>
     <lastmod>2024-11-29T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/</loc>
   </url><url>
     <loc>https://akash-kola-test.github.io/akashblog/categories/</loc>
   </url>

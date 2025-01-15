@@ -18,15 +18,15 @@
 &lt;p&gt;Time series are simply measurements or events that are tracked, monitored, down sampled and aggregated over time. This could be server metrics, application performance monitoring, network data, sensor data, events, clicks, trades in a market and many other types of analytical data. &lt;em&gt;The key difference that separates time series data from regular data is that you’re always asking questions about it over time.&lt;/em&gt;&lt;/p&gt;</description>
     </item>
     <item>
-      <title>Practical Basic Example</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/</link>
+      <title>InfluxDB Practical Basic Examples</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/</link>
       <pubDate>Fri, 29 Nov 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/</guid>
       <description>&lt;h1 id=&#34;contents&#34;&gt;Contents&lt;/h1&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#setup&#34;&gt;Setup&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#writing-data&#34;&gt;Writing Data&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#query&#34;&gt;Query&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#setup&#34;&gt;Setup&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#writing-data&#34;&gt;Writing Data&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#query&#34;&gt;Query&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2 id=&#34;setup&#34;&gt;Setup&lt;/h2&gt;
 &lt;ol&gt;
@@ -70,10 +70,10 @@
 &lt;p&gt;&lt;img alt=&#34;Write Data options&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Write%20Data%20options.png&#34;&gt;&lt;/p&gt;</description>
     </item>
     <item>
-      <title>Storage Engine</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</link>
+      <title>InfluxDB Storage Engine</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/</link>
       <pubDate>Fri, 29 Nov 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/</guid>
       <description>&lt;h2 id=&#34;shards&#34;&gt;Shards&lt;/h2&gt;
 &lt;p&gt;Basically data is organized into shards of time, each is an underlying DB which makes it efficient to drop old data&lt;/p&gt;
 &lt;p&gt;&lt;img alt=&#34;Shards&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Shards.png&#34;&gt;&lt;/p&gt;

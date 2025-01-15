@@ -154,6 +154,36 @@
 
 <article class="post-entry"> 
   <header class="entry-header">
+    <h2 class="entry-hint-parent">Hard disk partitions
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>Every hard disk is just a device in Linux. If we want to use the partition we need to create partitions in it.
+Sectors Hard disk can’t understand GBs, MBs, etc.. it can only understand the storage in terms of sectors. A sector is 512 bytes, so typically 100 GiB hard disk means 107,374,182,400 bytes and 209,715,200 sectors.
+[!info] We can use fdisk command to get information or perform some operations on disks.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-15 00:00:00 +0000 UTC'>January 15, 2025</span></footer>
+  <a class="entry-link" aria-label="post link to Hard disk partitions" href="https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Network Attach Storage (NAS)
+    </h2>
+  </header>
+  <div class="entry-content">
+    <p>Network attached storage is just an storage that will be available from network to store the data. This makes out file storage to be centralized and eliminates the local presence for using the storage as it available over network.
+NFS NFS is a protocol to use the network attached storage.
+Server installation and setup First we need to install the NFS server package, following command can be used in RedHat Linux yum install -y nft-utils Create sharing folder mkdir /sharing-folder configure /etc/exports file /sharing-folder 192.168.17.1(rw,root_squash) Restart the NFS server systemctl restart nfs-server Mounting folder client side To mount the server shared folder, we just need to run the mount command
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-15 00:00:00 +0000 UTC'>January 15, 2025</span></footer>
+  <a class="entry-link" aria-label="post link to Network Attach Storage (NAS)" href="https://akash-kola-test.github.io/akashblog/posts/learnings/network-attached-storage-nas/"></a>
+</article>
+
+<article class="post-entry"> 
+  <header class="entry-header">
     <h2 class="entry-hint-parent">Deep dive into RDS proxy - AWS re Invent 2020
     </h2>
   </header>
@@ -233,7 +263,7 @@ Time Series Time series are simply measurements or events that are tracked, moni
 
 <article class="post-entry"> 
   <header class="entry-header">
-    <h2 class="entry-hint-parent">Practical Basic Example
+    <h2 class="entry-hint-parent">InfluxDB Practical Basic Examples
     </h2>
   </header>
   <div class="entry-content">
@@ -242,12 +272,12 @@ Create a sample bucket for our practical
 Writing Data Click on Write data and select line protocol ...</p>
   </div>
   <footer class="entry-footer"><span title='2024-11-29 00:00:00 +0000 UTC'>November 29, 2024</span></footer>
-  <a class="entry-link" aria-label="post link to Practical Basic Example" href="https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/"></a>
+  <a class="entry-link" aria-label="post link to InfluxDB Practical Basic Examples" href="https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/"></a>
 </article>
 
 <article class="post-entry"> 
   <header class="entry-header">
-    <h2 class="entry-hint-parent">Storage Engine
+    <h2 class="entry-hint-parent">InfluxDB Storage Engine
     </h2>
   </header>
   <div class="entry-content">
@@ -257,19 +287,7 @@ We can arrange the data with key as ID and time, and the value being the field v
 ...</p>
   </div>
   <footer class="entry-footer"><span title='2024-11-29 00:00:00 +0000 UTC'>November 29, 2024</span></footer>
-  <a class="entry-link" aria-label="post link to Storage Engine" href="https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/"></a>
-</article>
-
-<article class="post-entry"> 
-  <header class="entry-header">
-    <h2 class="entry-hint-parent">
-    </h2>
-  </header>
-  <div class="entry-content">
-    <p> Understand how ClientPasswordAuthType works with RDS Proxy In scalability demo, we can showcase number of database connections and number of proxy connections to prove that proxy can take connections, but how to prove all those connections are being served. I mean, all those connections got it work done correctly without errors? Why DNS doesn’t take effect in the failover demo? It able to recover in just 7 seconds. Will every transaction in queue will get succeed on DB failover? Some situations where multiplexing may not work, Like when we change session state If your application is using session state, it is not obvious to re-use that connection For the lifetime of the application connection, it will be pinned to a specific database connection and it won’t be used for multiplexed. </p>
-  </div>
-  <footer class="entry-footer"></footer>
-  <a class="entry-link" aria-label="post link to " href="https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/"></a>
+  <a class="entry-link" aria-label="post link to InfluxDB Storage Engine" href="https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/"></a>
 </article>
     </main>
     

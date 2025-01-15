@@ -6,8 +6,48 @@
     <description>Recent content in Posts on Akash´s corner</description>
     <generator>Hugo -- 0.139.3</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 07 Jan 2025 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 15 Jan 2025 00:00:00 +0000</lastBuildDate>
     <atom:link href="https://akash-kola-test.github.io/akashblog/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Hard disk partitions</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/</link>
+      <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/learnings/hard-disk-partitions/</guid>
+      <description>&lt;p&gt;Every hard disk is just a device in Linux. If we want to use the partition we need to create partitions in it.&lt;/p&gt;
+&lt;h2 id=&#34;sectors&#34;&gt;Sectors&lt;/h2&gt;
+&lt;p&gt;Hard disk can&amp;rsquo;t understand GBs, MBs, etc.. it can only understand the storage in terms of &lt;strong&gt;sectors&lt;/strong&gt;. A &lt;strong&gt;sector is 512 bytes&lt;/strong&gt;, so typically 100 GiB hard disk means 107,374,182,400 bytes and 209,715,200 sectors.&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;[!info]
+We can use &lt;strong&gt;fdisk&lt;/strong&gt; command to get information or perform some operations on disks.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Network Attach Storage (NAS)</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/learnings/network-attached-storage-nas/</link>
+      <pubDate>Wed, 15 Jan 2025 00:00:00 +0000</pubDate>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/learnings/network-attached-storage-nas/</guid>
+      <description>&lt;p&gt;Network attached storage is just an storage that will be available from network to store the data. This makes out file storage to be centralized and eliminates the local presence for using the storage as it available over network.&lt;/p&gt;
+&lt;h2 id=&#34;nfs&#34;&gt;NFS&lt;/h2&gt;
+&lt;p&gt;NFS is a protocol to use the network attached storage.&lt;/p&gt;
+&lt;h2 id=&#34;server-installation-and-setup&#34;&gt;Server installation and setup&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;First we need to install the NFS server package, following command can be used in RedHat Linux&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;yum install -y nft-utils
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;Create sharing folder&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;mkdir /sharing-folder
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;configure /etc/exports file&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-txt&#34; data-lang=&#34;txt&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;/sharing-folder 192.168.17.1(rw,root_squash)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;Restart the NFS server&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;systemctl restart nfs-server
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id=&#34;mounting-folder-client-side&#34;&gt;Mounting folder client side&lt;/h2&gt;
+&lt;p&gt;To mount the server shared folder, we just need to run the mount command&lt;/p&gt;</description>
+    </item>
     <item>
       <title>Deep dive into RDS proxy - AWS re Invent 2020</title>
       <link>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/deep-dive-into-rds-proxy---aws-re-invent-2020/</link>
@@ -647,15 +687,15 @@
 &lt;p&gt;Time series are simply measurements or events that are tracked, monitored, down sampled and aggregated over time. This could be server metrics, application performance monitoring, network data, sensor data, events, clicks, trades in a market and many other types of analytical data. &lt;em&gt;The key difference that separates time series data from regular data is that you’re always asking questions about it over time.&lt;/em&gt;&lt;/p&gt;</description>
     </item>
     <item>
-      <title>Practical Basic Example</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/</link>
+      <title>InfluxDB Practical Basic Examples</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/</link>
       <pubDate>Fri, 29 Nov 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/practical-basic-examples/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/</guid>
       <description>&lt;h1 id=&#34;contents&#34;&gt;Contents&lt;/h1&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#setup&#34;&gt;Setup&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#writing-data&#34;&gt;Writing Data&lt;/a&gt;&lt;/li&gt;
-&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/practical-basic-examples/#query&#34;&gt;Query&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#setup&#34;&gt;Setup&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#writing-data&#34;&gt;Writing Data&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://akash-kola-test.github.io/akashblog/akashblog/posts/pocs/influxdb/influxdb-practical-basic-examples/#query&#34;&gt;Query&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h2 id=&#34;setup&#34;&gt;Setup&lt;/h2&gt;
 &lt;ol&gt;
@@ -699,10 +739,10 @@
 &lt;p&gt;&lt;img alt=&#34;Write Data options&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Write%20Data%20options.png&#34;&gt;&lt;/p&gt;</description>
     </item>
     <item>
-      <title>Storage Engine</title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</link>
+      <title>InfluxDB Storage Engine</title>
+      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/</link>
       <pubDate>Fri, 29 Nov 2024 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/storage-engine/</guid>
+      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/influxdb/influxdb-storage-engine/</guid>
       <description>&lt;h2 id=&#34;shards&#34;&gt;Shards&lt;/h2&gt;
 &lt;p&gt;Basically data is organized into shards of time, each is an underlying DB which makes it efficient to drop old data&lt;/p&gt;
 &lt;p&gt;&lt;img alt=&#34;Shards&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Shards.png&#34;&gt;&lt;/p&gt;
@@ -710,25 +750,6 @@
 &lt;p&gt;Basically each series and field maps to a unique ID as seen in the below picture&lt;/p&gt;
 &lt;p&gt;&lt;img alt=&#34;Series and fields&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Series%20and%20fields.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;We can arrange the data with key as ID and time, and the value being the field value and the key is always sorted&lt;/p&gt;</description>
-    </item>
-    <item>
-      <title></title>
-      <link>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/</link>
-      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-      <guid>https://akash-kola-test.github.io/akashblog/posts/pocs/rds-proxy/doubts/</guid>
-      <description>&lt;ol&gt;
-&lt;li&gt;Understand how ClientPasswordAuthType works with RDS Proxy&lt;/li&gt;
-&lt;li&gt;In scalability demo, we can showcase number of database connections and number of proxy connections to prove that proxy can take connections, but how to prove all those connections are being served. I mean, all those connections got it work done correctly without errors?&lt;/li&gt;
-&lt;li&gt;Why DNS doesn&amp;rsquo;t take effect in the failover demo? It able to recover in just 7 seconds.&lt;/li&gt;
-&lt;li&gt;Will every transaction in queue will get succeed on DB failover?&lt;/li&gt;
-&lt;li&gt;Some situations where multiplexing may not work, Like when we change session state
-&lt;ol&gt;
-&lt;li&gt;If your application is using session state, it is not obvious to re-use that connection&lt;/li&gt;
-&lt;li&gt;For the lifetime of the application connection, it will be pinned to a specific database connection and it won&amp;rsquo;t be used for multiplexed.
-&lt;img alt=&#34;Doubts - Pinning&#34; loading=&#34;lazy&#34; src=&#34;https://akash-kola-test.github.io/akashblog/akashblog/images/Doubts%20-%20Pinning.png&#34;&gt;&lt;/li&gt;
-&lt;/ol&gt;
-&lt;/li&gt;
-&lt;/ol&gt;</description>
     </item>
   </channel>
 </rss>
